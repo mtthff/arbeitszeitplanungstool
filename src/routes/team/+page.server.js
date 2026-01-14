@@ -1,18 +1,19 @@
 import { redirect } from '@sveltejs/kit';
+import { base } from '$app/paths';
 
 /** @param {{ cookies: any }} param0 */
 export async function load({ cookies }) {
 	const sessionCookie = cookies.get('session');
 	
 	if (!sessionCookie) {
-		throw redirect(303, '/azp/login');
+		throw redirect(303, `${base}/login`);
 	}
 	
 	const user = JSON.parse(sessionCookie);
 	
 	// Nur Leitung darf Team-Übersicht sehen
 	if (!user.is_leitung) {
-		throw redirect(303, '/azp/');
+		throw redirect(303, `${base}/`);
 	}
 	
 	return {};

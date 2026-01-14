@@ -14,6 +14,7 @@
 	let emailBody = $state('');
 	let showEmailModal = $state(false);
 	let toast = $state('');
+	let targetWorkDays = $state(0);
 	
 	const months = [
 		'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -43,6 +44,7 @@
 	$effect(() => {
 		if (selectedUser) {
 			loadEntries();
+			loadTargetHours();
 		}
 	});
 	
@@ -60,6 +62,31 @@
 			showToast('Fehler beim Laden');
 		} finally {
 			loading = false;
+		}
+	}
+	
+	async function loadTargetHours() {
+		try {
+			const response = await fetch(`${base}/api/target-hours?user_id=${selectedUser}&year=${currentYear}`);
+			
+			if (!response.ok) {
+				console.error('HTTP Error:', response.status);
+				targetWorkDays = 0;
+				return;
+			}
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				const monthData = result.data.find(d => d.month === currentMonth);
+				targetWorkDays = monthData ? monthData.work_days : 0;
+			} else {
+				console.error('API Error:', result.message);
+				targetWorkDays = 0;
+			}
+		} catch (e) {
+			console.error('Fehler beim Laden der Sollarbeitszeit:', e);
+			targetWorkDays = 0;
 		}
 	}
 	
@@ -119,6 +146,79 @@
 		const mins = workMin % 60;
 		
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function calculateTotalHours() {
+		let totalMinutes = 0;
+		
+		for (const entry of entries) {
+			if (entry.vacation) {
+				// Urlaubstag zählt als 7:48h (468 Minuten)
+				totalMinutes += 468;
+			} else if (entry.starttime && entry.endtime) {
+				const start = entry.starttime.split(':');
+				const end = entry.endtime.split(':');
+				const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+				const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+				const workMin = endMin - startMin - (entry.breakduration || 0);
+				totalMinutes += workMin;
+			}
+		}
+		
+		const hours = Math.floor(totalMinutes / 60);
+		const mins = totalMinutes % 60;
+		
+		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function countWorkDays() {
+		return entries.filter(entry => !entry.vacation).length;
+	}
+	
+	function countVacationDays() {
+		return entries.filter(entry => entry.vacation).length;
+	}
+	
+	function calculateTargetHours() {
+		// 7:48h = 468 Minuten pro Tag
+		const minutes = targetWorkDays * 468;
+		const hours = Math.floor(minutes / 60);
+		const mins = minutes % 60;
+		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function calculateDifference() {
+		if (targetWorkDays === 0) {
+			return { text: '-', isPositive: true };
+		}
+		
+		// Berechne Ist-Zeit in Minuten
+		let actualMinutes = 0;
+		for (const entry of entries) {
+			if (entry.vacation) {
+				actualMinutes += 468; // Urlaubstag = 7:48h
+			} else if (entry.starttime && entry.endtime) {
+				const start = entry.starttime.split(':');
+				const end = entry.endtime.split(':');
+				const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+				const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+				const workMin = endMin - startMin - (entry.breakduration || 0);
+				actualMinutes += workMin;
+			}
+		}
+		
+		// Berechne Soll-Zeit in Minuten
+		const targetMinutes = targetWorkDays * 468;
+		
+		// Differenz
+		const diffMinutes = actualMinutes - targetMinutes;
+		const isPositive = diffMinutes >= 0;
+		const absDiff = Math.abs(diffMinutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		const sign = isPositive ? '+' : '-';
+		return { text: `${sign}${hours}:${String(mins).padStart(2, '0')}h`, isPositive };
 	}
 </script>
 
@@ -222,6 +322,39 @@
 										</tr>
 									{/each}
 								</tbody>
+								<tfoot class="table-light">
+									<tr>
+										<td colspan="4" class="text-end"><strong>Ist-Arbeitszeit:</strong></td>
+										<td><strong class="text-primary">{calculateTotalHours()}</strong></td>
+										<td colspan="2">
+											<span class="badge bg-success me-2">{countWorkDays()} Arbeitstage</span>
+											<span class="badge bg-warning text-dark">{countVacationDays()} Urlaub</span>
+										</td>
+									</tr>
+									{#if targetWorkDays > 0}
+										<tr>
+											<td colspan="4" class="text-end"><strong>Soll-Arbeitszeit:</strong></td>
+											<td><strong class="text-info">{calculateTargetHours()}</strong></td>
+											<td colspan="2">
+												<span class="badge bg-info text-dark">{targetWorkDays} Arbeitstage (Soll)</span>
+											</td>
+										</tr>
+										<tr class="fw-bold">
+											<td colspan="4" class="text-end">Differenz:</td>
+											<td>
+												{#if calculateDifference().text !== '-'}
+													{@const diff = calculateDifference()}
+													<strong class={diff.isPositive ? 'text-success' : 'text-danger'}>
+														{diff.text}
+													</strong>
+												{:else}
+													<span class="text-muted">-</span>
+												{/if}
+											</td>
+											<td colspan="2"></td>
+										</tr>
+									{/if}
+								</tfoot>
 							</table>
 						</div>
 					{/if}

@@ -67,10 +67,14 @@
 			const payload = {
 				name: formName,
 				email: formEmail,
-				password: formPassword,
 				is_admin: formIsAdmin,
 				is_leitung: formIsLeitung
 			};
+			
+			// Passwort nur hinzufügen, wenn es ausgefüllt wurde
+			if (formPassword) {
+				payload.password = formPassword;
+			}
 			
 			let response;
 			if (editingUser) {

@@ -14,6 +14,7 @@ export async function GET({ url }) {
 				is_admin, 
 				is_leitung,
 				archived,
+				employment_percentage,
 				created_at
 			FROM users`;
 		

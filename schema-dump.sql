@@ -30,6 +30,7 @@ CREATE TABLE `users` (
   `is_admin` tinyint(1) DEFAULT '0',
   `is_leitung` tinyint(1) DEFAULT '0',
   `archived` tinyint(1) DEFAULT '0',
+  `employment_percentage` int DEFAULT '100',
   `default_monday_start_hour` int DEFAULT '9',
   `default_monday_start_minute` int DEFAULT '0',
   `default_monday_end_hour` int DEFAULT '17',
@@ -99,6 +100,7 @@ CREATE TABLE `target_hours` (
   `year` int NOT NULL,
   `month` int NOT NULL,
   `work_days` int NOT NULL,
+  `target_minutes` int DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_user_year_month` (`user_id`,`year`,`month`),
   CONSTRAINT `target_hours_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE

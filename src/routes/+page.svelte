@@ -26,6 +26,7 @@
 	
 	// Sollarbeitszeit für den aktuellen Monat
 	let targetWorkDays = $state(0);
+	let targetMinutes = $state(0);
 	
 	// Übertrag aus Vormonat
 	let previousMonthCarryover = $state(0);
@@ -40,6 +41,12 @@
 	];
 	
 	const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+	
+	function formatTime(timeStr) {
+		if (!timeStr) return '-';
+		// Zeit ist im Format HH:MM:SS, wir wollen nur HH:MM
+		return timeStr.substring(0, 5);
+	}
 	
 	$effect(() => {
 		loadUserData();
@@ -117,13 +124,21 @@
 			if (result.success) {
 				const monthData = result.data.find(d => d.month === currentMonth);
 				targetWorkDays = monthData ? monthData.work_days : 0;
+				targetMinutes = monthData ? monthData.target_minutes : 0;
+				
+				// Fallback: Wenn target_minutes noch nicht gespeichert ist, aber work_days vorhanden sind
+				if (targetMinutes === 0 && targetWorkDays > 0 && userData?.employment_percentage) {
+					targetMinutes = Math.round(targetWorkDays * 468 * (userData.employment_percentage / 100));
+				}
 			} else {
 				console.error('API Error:', result.message);
 				targetWorkDays = 0;
+				targetMinutes = 0;
 			}
 		} catch (e) {
 			console.error('Fehler beim Laden der Sollarbeitszeit:', e);
 			targetWorkDays = 0;
+			targetMinutes = 0;
 		}
 	}
 	
@@ -459,15 +474,15 @@
 	}
 	
 	function calculateTargetHours() {
-		// 7:48h = 468 Minuten pro Tag
-		const minutes = targetWorkDays * 468;
+		// Nutze die gespeicherten target_minutes aus der Datenbank
+		const minutes = targetMinutes;
 		const hours = Math.floor(minutes / 60);
 		const mins = minutes % 60;
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
 	}
 	
 	function calculateDifference() {
-		if (targetWorkDays === 0) {
+		if (targetMinutes === 0) {
 			return { text: '-', isPositive: true, minutes: 0 };
 		}
 		
@@ -488,11 +503,11 @@
 			}
 		}
 		
-		// Berechne Soll-Zeit in Minuten
-		const targetMinutes = targetWorkDays * 468;
+		// Berechne Soll-Zeit in Minuten (aus Datenbank)
+		const targetMins = targetMinutes;
 		
 		// Differenz
-		const diffMinutes = actualMinutes - targetMinutes;
+		const diffMinutes = actualMinutes - targetMins;
 		const isPositive = diffMinutes >= 0;
 		const absDiff = Math.abs(diffMinutes);
 		const hours = Math.floor(absDiff / 60);
@@ -544,8 +559,9 @@
 			
 			const prevMonthData = targetResult.data.find(d => d.month === prevMonth);
 			const prevTargetWorkDays = prevMonthData ? prevMonthData.work_days : 0;
+			const prevTargetMinutes = prevMonthData ? prevMonthData.target_minutes : 0;
 			
-			if (prevTargetWorkDays === 0) {
+			if (prevTargetMinutes === 0) {
 				previousMonthCarryover = 0;
 				return;
 			}
@@ -565,11 +581,11 @@
 				}
 			}
 			
-			// Berechne Soll-Zeit des Vormonats
-			const targetMinutes = prevTargetWorkDays * 468;
+			// Berechne Soll-Zeit des Vormonats (aus Datenbank)
+			const targetMins = prevTargetMinutes;
 			
 			// Differenz = Übertrag
-			previousMonthCarryover = actualMinutes - targetMinutes;
+			previousMonthCarryover = actualMinutes - targetMins;
 		} catch (e) {
 			console.error('Fehler beim Laden des Vormonats-Übertrags:', e);
 			previousMonthCarryover = 0;
@@ -872,8 +888,8 @@
 									{/if}
 								</td>
 								{#if day.entry}
-									<td>{day.entry.starttime || '-'}</td>
-									<td>{day.entry.endtime || '-'}</td>
+									<td>{formatTime(day.entry.starttime)}</td>
+									<td>{formatTime(day.entry.endtime)}</td>
 									<td>{day.entry.breakduration || '-'}</td>
 									<td><strong>{calculateHours(day.entry)}</strong></td>
 									<td>
@@ -921,12 +937,14 @@
 								<span class="badge bg-warning text-dark">{countVacationDays()} Urlaub</span>
 							</td>
 						</tr>
-						{#if targetWorkDays > 0}
+						{#if targetMinutes > 0}
 							<tr>
 								<td colspan="4" class="text-end"><strong>Soll-Arbeitszeit:</strong></td>
 								<td><strong class="text-info">{calculateTargetHours()}</strong></td>
 								<td colspan="3">
-									<span class="badge bg-info text-dark">{targetWorkDays} Arbeitstage (Soll)</span>
+									{#if targetWorkDays > 0}
+										<span class="badge bg-info text-dark">{targetWorkDays} Arbeitstage (Soll)</span>
+									{/if}
 								</td>
 							</tr>
 							<tr class="fw-bold">

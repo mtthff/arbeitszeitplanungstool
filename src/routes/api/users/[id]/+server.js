@@ -12,6 +12,7 @@ export async function GET({ params }) {
 				is_admin, 
 				is_leitung,
 				archived,
+				employment_percentage,
 				default_monday_start_hour,
 				default_monday_start_minute,
 				default_monday_end_hour,
@@ -89,6 +90,10 @@ export async function PUT({ params, request }) {
 		if (data.archived !== undefined) {
 			updates.push('archived = ?');
 			values.push(data.archived ? 1 : 0);
+		}
+		if (data.employment_percentage !== undefined) {
+			updates.push('employment_percentage = ?');
+			values.push(data.employment_percentage);
 		}
 		
 		// Standard-Arbeitszeiten - separate Felder für jeden Wochentag

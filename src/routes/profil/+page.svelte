@@ -6,6 +6,7 @@
 	
 	// Persönliche Daten
 	let email = $state('');
+	let employmentPercentage = $state(100);
 	let currentPassword = $state('');
 	let newPassword = $state('');
 	let confirmPassword = $state('');
@@ -86,6 +87,7 @@
 			if (result.success) {
 				const userData = result.data;
 				email = userData.email || '';
+				employmentPercentage = userData.employment_percentage || 100;
 				
 				// Montag
 				mondayIsFree = userData.default_monday_start_hour === null;
@@ -158,7 +160,8 @@
 		
 		try {
 			const payload = {
-				email: email
+				email: email,
+				employment_percentage: employmentPercentage
 			};
 			
 			if (newPassword) {
@@ -259,9 +262,14 @@
 				targetHours = Array(12).fill(0).map((_, i) => {
 					const month = i + 1;
 					const existing = loadedData.find(d => d.month === month);
+					const workDays = existing ? existing.work_days : 0;
+					// Nutze gespeicherte target_minutes oder berechne sie neu
+					const storedMinutes = existing ? existing.target_minutes : 0;
+					const calculatedMinutes = Math.round(workDays * 468 * (employmentPercentage / 100));
 					return {
 						month: month,
-						work_days: existing ? existing.work_days : 0
+						work_days: workDays,
+						target_minutes: storedMinutes || calculatedMinutes
 					};
 				});
 			}
@@ -278,7 +286,8 @@
 					user_id: user.id,
 					year: currentYear,
 					month: entry.month,
-					work_days: entry.work_days || 0
+					work_days: entry.work_days || 0,
+					target_minutes: entry.target_minutes || 0
 				};
 				
 				
@@ -303,12 +312,36 @@
 		}
 	}
 	
-	function calculateTargetHours(workDays) {
-		// 7:48h = 7.8 Stunden = 468 Minuten pro Tag
-		const minutes = workDays * 468;
+	function calculateTargetHours(workDays, targetMinutes = null) {
+		// Nutze gespeicherte target_minutes falls verfügbar, sonst berechne mit employmentPercentage
+		let minutes;
+		if (targetMinutes !== null && targetMinutes !== undefined) {
+			minutes = targetMinutes;
+		} else {
+			// Fallback: 7:48h = 468 Minuten pro Tag × Beschäftigungsumfang
+			minutes = Math.round(workDays * 468 * (employmentPercentage / 100));
+		}
 		const hours = Math.floor(minutes / 60);
 		const mins = minutes % 60;
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function updateTargetMinutes(entry, hours, minutes) {
+		entry.target_minutes = parseInt(hours || 0) * 60 + parseInt(minutes || 0);
+	}
+	
+	function getHoursFromMinutes(minutes) {
+		return Math.floor((minutes || 0) / 60);
+	}
+	
+	function getMinutesFromMinutes(minutes) {
+		return (minutes || 0) % 60;
+	}
+	
+	function updateWorkDays(entry, newWorkDays) {
+		entry.work_days = parseInt(newWorkDays) || 0;
+		// Aktualisiere target_minutes automatisch basierend auf employment_percentage
+		entry.target_minutes = Math.round(entry.work_days * 468 * (employmentPercentage / 100));
 	}
 	
 	function showToast(message) {
@@ -374,21 +407,37 @@
 								required
 							>
 						</div>
-						
-						<hr class="my-4">
-						
-						<h6 class="mb-3">Passwort ändern (optional)</h6>
-						
-						<div class="mb-3">
-							<label class="form-label">Neues Passwort</label>
+					
+					<div class="mb-3">
+						<label class="form-label">Beschäftigungsumfang</label>
+						<div class="input-group">
 							<input 
-								type="password" 
+								type="number" 
 								class="form-control" 
-								bind:value={newPassword}
-								placeholder="Leer lassen, um nicht zu ändern"
+								bind:value={employmentPercentage}
+								min="1"
+								max="100"
+								required
 							>
-							<small class="form-text text-muted">Mindestens 6 Zeichen</small>
+							<span class="input-group-text">%</span>
 						</div>
+						<small class="form-text text-muted">Vollzeit = 100%, Teilzeit z.B. 50%</small>
+					</div>
+					
+					<hr class="my-4">
+					
+					<h6 class="mb-3">Passwort ändern (optional)</h6>
+					
+					<div class="mb-3">
+						<label class="form-label">Neues Passwort</label>
+						<input 
+							type="password" 
+							class="form-control" 
+							bind:value={newPassword}
+							placeholder="Leer lassen, um nicht zu ändern"
+						>
+						<small class="form-text text-muted">Mindestens 6 Zeichen</small>
+					</div>
 						
 						<div class="mb-3">
 							<label class="form-label">Passwort bestätigen</label>
@@ -955,11 +1004,6 @@
 				</div>
 				<div class="card-body">
 					<form onsubmit={(e) => { e.preventDefault(); saveTargetHours(); }}>
-						<div class="alert alert-info mb-4">
-							<i class="bi bi-info-circle"></i> 
-							<strong>Hinweis:</strong> Tragen Sie für jeden Monat die Anzahl der Arbeitstage ein. 
-							Ein Arbeitstag entspricht 7:48h (100%).
-						</div>
 						
 						<div class="table-responsive">
 							<table class="table table-hover">
@@ -979,13 +1023,36 @@
 													type="number" 
 													class="form-control" 
 													style="width: 100px;"
-													bind:value={entry.work_days}
+													value={entry.work_days}
+													oninput={(e) => updateWorkDays(entry, e.target.value)}
 													min="0"
 													max="31"
 												>
 											</td>
 											<td>
-												<span class="badge bg-primary">{calculateTargetHours(entry.work_days)}</span>
+												<div class="d-flex gap-2 align-items-center">
+													<input 
+														type="number" 
+														class="form-control" 
+														style="width: 70px;"
+														value={getHoursFromMinutes(entry.target_minutes)}
+														oninput={(e) => updateTargetMinutes(entry, e.target.value, getMinutesFromMinutes(entry.target_minutes))}
+														min="0"
+														placeholder="0"
+													>
+													<span>:</span>
+													<input 
+														type="number" 
+														class="form-control" 
+														style="width: 70px;"
+														value={getMinutesFromMinutes(entry.target_minutes)}
+														oninput={(e) => updateTargetMinutes(entry, getHoursFromMinutes(entry.target_minutes), e.target.value)}
+														min="0"
+														max="59"
+														placeholder="0"
+													>
+													<span class="text-muted">h</span>
+												</div>
 											</td>
 										</tr>
 									{/each}
@@ -994,7 +1061,7 @@
 									<tr>
 										<td><strong>Gesamt</strong></td>
 										<td><strong>{targetHours.reduce((sum, e) => sum + (e.work_days || 0), 0)} Tage</strong></td>
-										<td><strong class="text-primary">{calculateTargetHours(targetHours.reduce((sum, e) => sum + (e.work_days || 0), 0))}</strong></td>
+										<td><strong class="text-primary">{calculateTargetHours(0, targetHours.reduce((sum, e) => sum + (e.target_minutes || 0), 0))}</strong></td>
 									</tr>
 								</tfoot>
 							</table>
@@ -1012,11 +1079,12 @@
 {/if}
 
 {#if toast}
-	<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+	<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
 		<div class="toast show" role="alert">
-			<div class="toast-header">
-				<strong class="me-auto">Benachrichtigung</strong>
-				<button type="button" class="btn-close" onclick={() => toast = ''}></button>
+			<div class="toast-header bg-success text-white">
+				<i class="bi bi-check-circle-fill me-2"></i>
+				<strong class="me-auto">Erfolg</strong>
+				<button type="button" class="btn-close btn-close-white" onclick={() => toast = ''}></button>
 			</div>
 			<div class="toast-body">
 				{toast}

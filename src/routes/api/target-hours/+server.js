@@ -16,7 +16,7 @@ export async function GET({ url }) {
 		}
 
 		const results = await query(
-			'SELECT * FROM target_hours WHERE user_id = ? AND year = ? ORDER BY month',
+			'SELECT th.*, u.employment_percentage FROM target_hours th JOIN users u ON th.user_id = u.id WHERE th.user_id = ? AND th.year = ? ORDER BY th.month',
 			[user_id, year]
 		);
 
@@ -35,11 +35,31 @@ export async function GET({ url }) {
 export async function POST({ request }) {
 	try {
 		const data = await request.json();
-		const { user_id, year, month, work_days } = data;
+		const { user_id, year, month, work_days, target_minutes: customTargetMinutes } = data;
 
 		if (!user_id || !year || !month || work_days === undefined) {
 			console.error('Validierung fehlgeschlagen:', { user_id, year, month, work_days });
 			return json({ success: false, message: 'Alle Felder erforderlich' }, { status: 400 });
+		}
+
+		let target_minutes;
+		
+		// Wenn target_minutes explizit übergeben werden, nutze diese
+		if (customTargetMinutes !== undefined && customTargetMinutes !== null) {
+			target_minutes = customTargetMinutes;
+		} else {
+			// Ansonsten berechne basierend auf employment_percentage
+			const userResult = await query(
+				'SELECT employment_percentage FROM users WHERE id = ?',
+				[user_id]
+			);
+
+			if (userResult.length === 0) {
+				return json({ success: false, message: 'Benutzer nicht gefunden' }, { status: 404 });
+			}
+
+			const employmentPercentage = userResult[0].employment_percentage || 100;
+			target_minutes = Math.round(work_days * 468 * (employmentPercentage / 100));
 		}
 
 		// Prüfe ob Eintrag existiert
@@ -51,14 +71,14 @@ export async function POST({ request }) {
 		if (existing.length > 0) {
 			// UPDATE
 			await run(
-				'UPDATE target_hours SET work_days = ? WHERE user_id = ? AND year = ? AND month = ?',
-				[work_days, user_id, year, month]
+				'UPDATE target_hours SET work_days = ?, target_minutes = ? WHERE user_id = ? AND year = ? AND month = ?',
+				[work_days, target_minutes, user_id, year, month]
 			);
 		} else {
 			// INSERT
 			await run(
-				'INSERT INTO target_hours (user_id, year, month, work_days) VALUES (?, ?, ?, ?)',
-				[user_id, year, month, work_days]
+				'INSERT INTO target_hours (user_id, year, month, work_days, target_minutes) VALUES (?, ?, ?, ?, ?)',
+				[user_id, year, month, work_days, target_minutes]
 			);
 		}
 

@@ -41,7 +41,16 @@ export async function POST({ request }) {
 		}
 
 		await run(
-			'INSERT INTO users (name, email, password, is_admin, is_leitung) VALUES (?, ?, ?, ?, ?)',
+			`INSERT INTO users (
+				name, email, password, is_admin, is_leitung,
+				default_monday_start_hour, default_monday_start_minute, default_monday_end_hour, default_monday_end_minute,
+				default_tuesday_start_hour, default_tuesday_start_minute, default_tuesday_end_hour, default_tuesday_end_minute,
+				default_wednesday_start_hour, default_wednesday_start_minute, default_wednesday_end_hour, default_wednesday_end_minute,
+				default_thursday_start_hour, default_thursday_start_minute, default_thursday_end_hour, default_thursday_end_minute,
+				default_friday_start_hour, default_friday_start_minute, default_friday_end_hour, default_friday_end_minute,
+				default_saturday_start_hour, default_saturday_start_minute, default_saturday_end_hour, default_saturday_end_minute,
+				default_sunday_start_hour, default_sunday_start_minute, default_sunday_end_hour, default_sunday_end_minute
+			) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`,
 			[name, email, password, is_admin ? 1 : 0, is_leitung ? 1 : 0]
 		);
 		

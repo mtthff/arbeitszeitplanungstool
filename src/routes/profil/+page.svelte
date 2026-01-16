@@ -11,7 +11,7 @@
 	let newPassword = $state('');
 	let confirmPassword = $state('');
 	
-	// Standard-Arbeitszeiten - separate Felder für jeden Tag
+	// Rahmendienstplan - separate Felder für jeden Tag
 	let mondayStartHour = $state(9);
 	let mondayStartMinute = $state(0);
 	let mondayEndHour = $state(17);
@@ -239,7 +239,7 @@
 			const result = await response.json();
 			
 			if (result.success) {
-				showToast('Standard-Arbeitszeiten gespeichert');
+				showToast('Rahmendienstplan gespeichert');
 				// Lade Daten neu
 				await loadUserData();
 			} else {
@@ -375,7 +375,7 @@
 						class:active={activeTab === 'worktimes'}
 						onclick={() => activeTab = 'worktimes'}
 					>
-						<i class="bi bi-clock"></i> Standard-Arbeitszeiten
+						<i class="bi bi-clock"></i> Rahmendienstplan
 					</button>
 				</li>
 				<li class="nav-item">
@@ -458,534 +458,78 @@
 		{#if activeTab === 'worktimes'}
 			<div class="card">
 				<div class="card-header">
-					<h5 class="mb-0"><i class="bi bi-calendar-week"></i> Standard-Arbeitszeiten pro Wochentag</h5>
+					<h5 class="mb-0"><i class="bi bi-calendar-week"></i> Rahmendienstplan pro Wochentag</h5>
 				</div>
 				<div class="card-body">
-					<p class="text-muted mb-4">
-						Geben Sie Ihre üblichen Arbeitszeiten ein. Für freie Tage lassen Sie alle Felder leer.
-					</p>
+					<div class="alert alert-info mb-4">
+						<i class="bi bi-info-circle"></i> 
+						<strong>Hinweis:</strong> Der Rahmendienstplan wird von der Leitung verwaltet und kann hier nur eingesehen werden.
+					</div>
 					
-					<form onsubmit={(e) => { e.preventDefault(); saveWorkTimes(); }}>
-						<!-- Montag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Montag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={mondayIsFree ? "-" : mondayStartHour}
-										oninput={(e) => { if (!mondayIsFree) mondayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={mondayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={mondayIsFree ? "-" : mondayStartMinute}
-										oninput={(e) => { if (!mondayIsFree) mondayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={mondayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={mondayIsFree ? "-" : mondayEndHour}
-										oninput={(e) => { if (!mondayIsFree) mondayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={mondayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={mondayIsFree ? "-" : mondayEndMinute}
-										oninput={(e) => { if (!mondayIsFree) mondayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={mondayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={mondayIsFree}
-											id="mondayFree"
-										>
-										<label class="form-check-label small" for="mondayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Dienstag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Dienstag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={tuesdayIsFree ? "-" : tuesdayStartHour}
-										oninput={(e) => { if (!tuesdayIsFree) tuesdayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={tuesdayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={tuesdayIsFree ? "-" : tuesdayStartMinute}
-										oninput={(e) => { if (!tuesdayIsFree) tuesdayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={tuesdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={tuesdayIsFree ? "-" : tuesdayEndHour}
-										oninput={(e) => { if (!tuesdayIsFree) tuesdayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={tuesdayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={tuesdayIsFree ? "-" : tuesdayEndMinute}
-										oninput={(e) => { if (!tuesdayIsFree) tuesdayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={tuesdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={tuesdayIsFree}
-											id="tuesdayFree"
-										>
-										<label class="form-check-label small" for="tuesdayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Mittwoch -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Mittwoch
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={wednesdayIsFree ? "-" : wednesdayStartHour}
-										oninput={(e) => { if (!wednesdayIsFree) wednesdayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={wednesdayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={wednesdayIsFree ? "-" : wednesdayStartMinute}
-										oninput={(e) => { if (!wednesdayIsFree) wednesdayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={wednesdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={wednesdayIsFree ? "-" : wednesdayEndHour}
-										oninput={(e) => { if (!wednesdayIsFree) wednesdayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={wednesdayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={wednesdayIsFree ? "-" : wednesdayEndMinute}
-										oninput={(e) => { if (!wednesdayIsFree) wednesdayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={wednesdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={wednesdayIsFree}
-											id="wednesdayFree"
-										>
-										<label class="form-check-label small" for="wednesdayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Donnerstag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Donnerstag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={thursdayIsFree ? "-" : thursdayStartHour}
-										oninput={(e) => { if (!thursdayIsFree) thursdayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={thursdayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={thursdayIsFree ? "-" : thursdayStartMinute}
-										oninput={(e) => { if (!thursdayIsFree) thursdayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={thursdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={thursdayIsFree ? "-" : thursdayEndHour}
-										oninput={(e) => { if (!thursdayIsFree) thursdayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={thursdayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={thursdayIsFree ? "-" : thursdayEndMinute}
-										oninput={(e) => { if (!thursdayIsFree) thursdayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={thursdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={thursdayIsFree}
-											id="thursdayFree"
-										>
-										<label class="form-check-label small" for="thursdayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Freitag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Freitag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={fridayIsFree ? "-" : fridayStartHour}
-										oninput={(e) => { if (!fridayIsFree) fridayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={fridayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={fridayIsFree ? "-" : fridayStartMinute}
-										oninput={(e) => { if (!fridayIsFree) fridayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={fridayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={fridayIsFree ? "-" : fridayEndHour}
-										oninput={(e) => { if (!fridayIsFree) fridayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={fridayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={fridayIsFree ? "-" : fridayEndMinute}
-										oninput={(e) => { if (!fridayIsFree) fridayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={fridayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={fridayIsFree}
-											id="fridayFree"
-										>
-										<label class="form-check-label small" for="fridayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-						
-						<!-- Samstag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-primary"></i> Samstag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={saturdayIsFree ? "-" : saturdayStartHour}
-										oninput={(e) => { if (!saturdayIsFree) saturdayStartHour = parseInt(e.target.value) || 0; }}
-										disabled={saturdayIsFree}
-										placeholder="9"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={saturdayIsFree ? "-" : saturdayStartMinute}
-										oninput={(e) => { if (!saturdayIsFree) saturdayStartMinute = parseInt(e.target.value) || 0; }}
-										disabled={saturdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={saturdayIsFree ? "-" : saturdayEndHour}
-										oninput={(e) => { if (!saturdayIsFree) saturdayEndHour = parseInt(e.target.value) || 0; }}
-										disabled={saturdayIsFree}
-										placeholder="17"
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="text" 
-										class="form-control text-center" 
-										style="width: 70px;"
-										value={saturdayIsFree ? "-" : saturdayEndMinute}
-										oninput={(e) => { if (!saturdayIsFree) saturdayEndMinute = parseInt(e.target.value) || 0; }}
-										disabled={saturdayIsFree}
-										placeholder="0"
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={saturdayIsFree}
-											id="saturdayFree"
-										>
-										<label class="form-check-label small" for="saturdayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>						<!-- Sonntag -->
-						<div class="mb-4">
-							<label class="form-label fw-bold">
-								<i class="bi bi-circle-fill text-secondary"></i> Sonntag
-							</label>
-							<div class="row g-2 align-items-end">
-								<div class="col-auto">
-									<label class="form-label small">Beginn Stunde</label>
-									<input 
-										type="number" 
-										class="form-control" 
-										style="width: 70px;"
-										bind:value={sundayStartHour}
-										disabled={sundayIsFree}
-										min="0"
-										max="23"
-										placeholder={sundayIsFree ? "-" : "Frei"}
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Beginn Minute</label>
-									<input 
-										type="number" 
-										class="form-control" 
-										style="width: 70px;"
-										bind:value={sundayStartMinute}
-										disabled={sundayIsFree}
-										min="0"
-										max="59"
-										step="5"
-										placeholder={sundayIsFree ? "-" : "Frei"}
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Stunde</label>
-									<input 
-										type="number" 
-										class="form-control" 
-										style="width: 70px;"
-										bind:value={sundayEndHour}
-										disabled={sundayIsFree}
-										min="0"
-										max="23"
-										placeholder={sundayIsFree ? "-" : "Frei"}
-									>
-								</div>
-								<div class="col-auto">
-									<label class="form-label small">Ende Minute</label>
-									<input 
-										type="number" 
-										class="form-control" 
-										style="width: 70px;"
-										bind:value={sundayEndMinute}
-										disabled={sundayIsFree}
-										min="0"
-										max="59"
-										step="5"
-										placeholder={sundayIsFree ? "-" : "Frei"}
-									>
-								</div>
-								<div class="col-auto">
-									<div class="form-check">
-										<input 
-											class="form-check-input" 
-											type="checkbox" 
-											bind:checked={sundayIsFree}
-											id="sundayFree"
-										>
-										<label class="form-check-label small" for="sundayFree">
-											Freier Tag
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>						<hr class="my-4">
-						
-						<div class="mb-3">
-							<label class="form-label fw-bold">Standard-Pause (Minuten)</label>
-							<input 
-								type="number" 
-								class="form-control" 
-								style="width: 100px;"
-								bind:value={defaultBreak}
-								min="0"
-								max="60"
-								step="5"
-							>
-							<small class="form-text text-muted">Maximale Pausendauer: 60 Minuten</small>
-						</div>
-						
-						<div class="alert alert-info">
-							<i class="bi bi-info-circle"></i> 
-							<strong>Hinweis:</strong> Diese Zeiten werden beim Erstellen neuer Einträge vorausgefüllt.
-						</div>
-						
-						<button type="submit" class="btn btn-primary">
-							<i class="bi bi-check-circle"></i> Speichern
-						</button>
-					</form>
+					<div class="table-responsive" style="max-width: 700px; margin: 0 auto;">
+						<table class="table table-bordered table-sm">
+							<thead class="table-light">
+								<tr>
+									<th>Wochentag</th>
+									<th>Von</th>
+									<th>Bis</th>
+									<th>Status</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td><strong>Montag</strong></td>
+									<td>{mondayIsFree ? '-' : `${String(mondayStartHour).padStart(2, '0')}:${String(mondayStartMinute).padStart(2, '0')}`}</td>
+									<td>{mondayIsFree ? '-' : `${String(mondayEndHour).padStart(2, '0')}:${String(mondayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html mondayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Dienstag</strong></td>
+									<td>{tuesdayIsFree ? '-' : `${String(tuesdayStartHour).padStart(2, '0')}:${String(tuesdayStartMinute).padStart(2, '0')}`}</td>
+									<td>{tuesdayIsFree ? '-' : `${String(tuesdayEndHour).padStart(2, '0')}:${String(tuesdayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html tuesdayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Mittwoch</strong></td>
+									<td>{wednesdayIsFree ? '-' : `${String(wednesdayStartHour).padStart(2, '0')}:${String(wednesdayStartMinute).padStart(2, '0')}`}</td>
+									<td>{wednesdayIsFree ? '-' : `${String(wednesdayEndHour).padStart(2, '0')}:${String(wednesdayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html wednesdayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Donnerstag</strong></td>
+									<td>{thursdayIsFree ? '-' : `${String(thursdayStartHour).padStart(2, '0')}:${String(thursdayStartMinute).padStart(2, '0')}`}</td>
+									<td>{thursdayIsFree ? '-' : `${String(thursdayEndHour).padStart(2, '0')}:${String(thursdayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html thursdayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Freitag</strong></td>
+									<td>{fridayIsFree ? '-' : `${String(fridayStartHour).padStart(2, '0')}:${String(fridayStartMinute).padStart(2, '0')}`}</td>
+									<td>{fridayIsFree ? '-' : `${String(fridayEndHour).padStart(2, '0')}:${String(fridayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html fridayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Samstag</strong></td>
+									<td>{saturdayIsFree ? '-' : `${String(saturdayStartHour).padStart(2, '0')}:${String(saturdayStartMinute).padStart(2, '0')}`}</td>
+									<td>{saturdayIsFree ? '-' : `${String(saturdayEndHour).padStart(2, '0')}:${String(saturdayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html saturdayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+								<tr>
+									<td><strong>Sonntag</strong></td>
+									<td>{sundayIsFree ? '-' : `${String(sundayStartHour).padStart(2, '0')}:${String(sundayStartMinute).padStart(2, '0')}`}</td>
+									<td>{sundayIsFree ? '-' : `${String(sundayEndHour).padStart(2, '0')}:${String(sundayEndMinute).padStart(2, '0')}`}</td>
+									<td>{@html sundayIsFree ? '<span class="badge bg-secondary">Frei</span>' : '<span class="badge bg-success">Arbeitstag</span>'}</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					
+					<div class="mt-3">
+						<strong>Standard-Pausenzeit:</strong> {defaultBreak} Minuten
+					</div>
 				</div>
 			</div>
 		{/if}
+		
 		
 		{#if activeTab === 'target'}
 			<div class="card">

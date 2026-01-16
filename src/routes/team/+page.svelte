@@ -6,6 +6,7 @@
 	
 	let users = $state([]);
 	let selectedUser = $state(null);
+	let activeTab = $state('timetable'); // 'timetable' oder 'schedule'
 	let currentYear = $state(new Date().getFullYear());
 	let currentMonth = $state(new Date().getMonth() + 1);
 	let entries = $state([]);
@@ -15,6 +16,51 @@
 	let showEmailModal = $state(false);
 	let toast = $state('');
 	let targetWorkDays = $state(0);
+	
+	// Rahmendienstplan-Felder für den ausgewählten User
+	let mondayStartHour = $state(null);
+	let mondayStartMinute = $state(null);
+	let mondayEndHour = $state(null);
+	let mondayEndMinute = $state(null);
+	let tuesdayStartHour = $state(null);
+	let tuesdayStartMinute = $state(null);
+	let tuesdayEndHour = $state(null);
+	let tuesdayEndMinute = $state(null);
+	let wednesdayStartHour = $state(null);
+	let wednesdayStartMinute = $state(null);
+	let wednesdayEndHour = $state(null);
+	let wednesdayEndMinute = $state(null);
+	let thursdayStartHour = $state(null);
+	let thursdayStartMinute = $state(null);
+	let thursdayEndHour = $state(null);
+	let thursdayEndMinute = $state(null);
+	let fridayStartHour = $state(null);
+	let fridayStartMinute = $state(null);
+	let fridayEndHour = $state(null);
+	let fridayEndMinute = $state(null);
+	let saturdayStartHour = $state(null);
+	let saturdayStartMinute = $state(null);
+	let saturdayEndHour = $state(null);
+	let saturdayEndMinute = $state(null);
+	let sundayStartHour = $state(null);
+	let sundayStartMinute = $state(null);
+	let sundayEndHour = $state(null);
+	let sundayEndMinute = $state(null);
+	let defaultBreak = $state(30);
+	let mondayIsFree = $state(false);
+	let tuesdayIsFree = $state(false);
+	let wednesdayIsFree = $state(false);
+	let thursdayIsFree = $state(false);
+	let fridayIsFree = $state(false);
+	let saturdayIsFree = $state(true);
+	let sundayIsFree = $state(true);
+	
+	// Prüfung ob Rahmendienstplan existiert
+	let hasSchedule = $derived(
+		mondayStartHour !== null || tuesdayStartHour !== null || 
+		wednesdayStartHour !== null || thursdayStartHour !== null || 
+		fridayStartHour !== null
+	);
 	
 	// Übertrag aus Vormonat
 	let previousMonthCarryover = $state(0);
@@ -59,6 +105,7 @@
 			loadEntries();
 			loadTargetHours();
 			loadPreviousMonthCarryover();
+			loadUserSchedule();
 		}
 	});
 	
@@ -70,7 +117,35 @@
 			);
 			const result = await response.json();
 			if (result.success) {
-				entries = result.data;
+				// Generiere alle Tage des Monats
+				const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+				const allDays = [];
+				
+				for (let day = 1; day <= daysInMonth; day++) {
+					const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+					const date = new Date(dateStr + 'T00:00:00');
+					const dayOfWeek = date.getDay(); // 0 = Sonntag, 6 = Samstag
+					
+					// Suche existierenden Eintrag
+					const existingEntry = result.data.find(e => e.date === dateStr);
+					
+					if (existingEntry) {
+						allDays.push(existingEntry);
+					} else {
+						// Erstelle Platzhalter für Tage ohne Eintrag
+						allDays.push({
+							date: dateStr,
+							starttime: null,
+							endtime: null,
+							breakduration: null,
+							vacation: dayOfWeek === 0 || dayOfWeek === 6 ? 1 : 0, // Wochenende als "frei" markieren
+							notes: dayOfWeek === 0 || dayOfWeek === 6 ? 'Wochenende' : '',
+							_placeholder: true
+						});
+					}
+				}
+				
+				entries = allDays;
 			}
 		} catch (e) {
 			showToast('Fehler beim Laden');
@@ -190,7 +265,7 @@
 	}
 	
 	function countVacationDays() {
-		return entries.filter(entry => entry.vacation).length;
+		return entries.filter(entry => entry.vacation === 1 && !entry._placeholder).length;
 	}
 	
 	function calculateTargetHours() {
@@ -381,6 +456,117 @@
 		}
 	}
 	
+	async function loadUserSchedule() {
+		if (!selectedUser) return;
+		
+		try {
+			const response = await fetch(`${base}/api/users/${selectedUser}`);
+			const result = await response.json();
+			
+			if (result.success) {
+				const userData = result.data;
+				defaultBreak = userData.default_break || 30;
+				
+				mondayIsFree = userData.default_monday_start_hour === null;
+				mondayStartHour = userData.default_monday_start_hour;
+				mondayStartMinute = userData.default_monday_start_minute;
+				mondayEndHour = userData.default_monday_end_hour;
+				mondayEndMinute = userData.default_monday_end_minute;
+				
+				tuesdayIsFree = userData.default_tuesday_start_hour === null;
+				tuesdayStartHour = userData.default_tuesday_start_hour;
+				tuesdayStartMinute = userData.default_tuesday_start_minute;
+				tuesdayEndHour = userData.default_tuesday_end_hour;
+				tuesdayEndMinute = userData.default_tuesday_end_minute;
+				
+				wednesdayIsFree = userData.default_wednesday_start_hour === null;
+				wednesdayStartHour = userData.default_wednesday_start_hour;
+				wednesdayStartMinute = userData.default_wednesday_start_minute;
+				wednesdayEndHour = userData.default_wednesday_end_hour;
+				wednesdayEndMinute = userData.default_wednesday_end_minute;
+				
+				thursdayIsFree = userData.default_thursday_start_hour === null;
+				thursdayStartHour = userData.default_thursday_start_hour;
+				thursdayStartMinute = userData.default_thursday_start_minute;
+				thursdayEndHour = userData.default_thursday_end_hour;
+				thursdayEndMinute = userData.default_thursday_end_minute;
+				
+				fridayIsFree = userData.default_friday_start_hour === null;
+				fridayStartHour = userData.default_friday_start_hour;
+				fridayStartMinute = userData.default_friday_start_minute;
+				fridayEndHour = userData.default_friday_end_hour;
+				fridayEndMinute = userData.default_friday_end_minute;
+				
+				saturdayIsFree = userData.default_saturday_start_hour === null;
+				saturdayStartHour = userData.default_saturday_start_hour;
+				saturdayStartMinute = userData.default_saturday_start_minute;
+				saturdayEndHour = userData.default_saturday_end_hour;
+				saturdayEndMinute = userData.default_saturday_end_minute;
+				
+				sundayIsFree = userData.default_sunday_start_hour === null;
+				sundayStartHour = userData.default_sunday_start_hour;
+				sundayStartMinute = userData.default_sunday_start_minute;
+				sundayEndHour = userData.default_sunday_end_hour;
+				sundayEndMinute = userData.default_sunday_end_minute;
+			}
+		} catch (e) {
+			console.error('Fehler beim Laden des Rahmendienstplans:', e);
+		}
+	}
+	
+	async function saveUserSchedule() {
+		try {
+			const payload = {
+				default_break: defaultBreak,
+				default_monday_start_hour: mondayIsFree ? null : mondayStartHour,
+				default_monday_start_minute: mondayIsFree ? null : mondayStartMinute,
+				default_monday_end_hour: mondayIsFree ? null : mondayEndHour,
+				default_monday_end_minute: mondayIsFree ? null : mondayEndMinute,
+				default_tuesday_start_hour: tuesdayIsFree ? null : tuesdayStartHour,
+				default_tuesday_start_minute: tuesdayIsFree ? null : tuesdayStartMinute,
+				default_tuesday_end_hour: tuesdayIsFree ? null : tuesdayEndHour,
+				default_tuesday_end_minute: tuesdayIsFree ? null : tuesdayEndMinute,
+				default_wednesday_start_hour: wednesdayIsFree ? null : wednesdayStartHour,
+				default_wednesday_start_minute: wednesdayIsFree ? null : wednesdayStartMinute,
+				default_wednesday_end_hour: wednesdayIsFree ? null : wednesdayEndHour,
+				default_wednesday_end_minute: wednesdayIsFree ? null : wednesdayEndMinute,
+				default_thursday_start_hour: thursdayIsFree ? null : thursdayStartHour,
+				default_thursday_start_minute: thursdayIsFree ? null : thursdayStartMinute,
+				default_thursday_end_hour: thursdayIsFree ? null : thursdayEndHour,
+				default_thursday_end_minute: thursdayIsFree ? null : thursdayEndMinute,
+				default_friday_start_hour: fridayIsFree ? null : fridayStartHour,
+				default_friday_start_minute: fridayIsFree ? null : fridayStartMinute,
+				default_friday_end_hour: fridayIsFree ? null : fridayEndHour,
+				default_friday_end_minute: fridayIsFree ? null : fridayEndMinute,
+				default_saturday_start_hour: saturdayIsFree ? null : saturdayStartHour,
+				default_saturday_start_minute: saturdayIsFree ? null : saturdayStartMinute,
+				default_saturday_end_hour: saturdayIsFree ? null : saturdayEndHour,
+				default_saturday_end_minute: saturdayIsFree ? null : saturdayEndMinute,
+				default_sunday_start_hour: sundayIsFree ? null : sundayStartHour,
+				default_sunday_start_minute: sundayIsFree ? null : sundayStartMinute,
+				default_sunday_end_hour: sundayIsFree ? null : sundayEndHour,
+				default_sunday_end_minute: sundayIsFree ? null : sundayEndMinute
+			};
+			
+			const response = await fetch(`${base}/api/users/${selectedUser}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				showToast('Rahmendienstplan gespeichert');
+			} else {
+				showToast('Fehler beim Speichern');
+			}
+		} catch (e) {
+			console.error('Fehler:', e);
+			showToast('Fehler beim Speichern');
+		}
+	}
+	
 	async function deleteCarryoverCorrection() {
 		if (!selectedUser) return;
 		
@@ -454,6 +640,35 @@
 			
 			<div class="col-md-9">
 				{#if selectedUser}
+					<!-- Tab Navigation -->
+					<ul class="nav nav-tabs mb-3">
+						<li class="nav-item">
+							<button 
+								class="nav-link" 
+								class:active={activeTab === 'timetable'}
+								onclick={() => activeTab = 'timetable'}
+							>
+								<i class="bi bi-calendar3"></i> Zeiteinträge
+							</button>
+						</li>
+						<li class="nav-item">
+							<button 
+								class="nav-link" 
+								class:active={activeTab === 'schedule'}
+								onclick={() => activeTab = 'schedule'}
+							>
+								<i class="bi bi-clock"></i> Rahmendienstplan
+							</button>
+						</li>
+					</ul>
+					
+					{#if activeTab === 'timetable'}
+					{#if !hasSchedule}
+						<div class="alert alert-warning">
+							<i class="bi bi-exclamation-triangle-fill"></i>
+							<strong>Achtung:</strong> Für diese:n Mitarbeiter:in wurde noch kein Rahmendienstplan erstellt. Bitte wechsle zum Tab "Rahmendienstplan" und trage die Arbeitszeiten ein, bevor Zeiteinträge erfasst werden können.
+						</div>
+					{:else}
 					<div class="card mb-3">
 						<div class="card-body">
 							<div class="d-flex justify-content-between align-items-center">
@@ -497,21 +712,28 @@
 								</thead>
 								<tbody>
 									{#each entries as entry}
-										<tr class:table-warning={entry.vacation === 1}>
+										{@const isToday = entry.date === new Date().toISOString().split('T')[0]}
+										<tr 
+											class:table-warning={entry.vacation === 1 && !entry._placeholder}
+											class:table-secondary={entry._placeholder}
+											class:table-info={isToday}
+										>
 											<td>{formatDate(entry.date)}</td>
 									<td>{formatTime(entry.starttime)}</td>
 									<td>{formatTime(entry.endtime)}</td>
 											<td>{entry.breakduration || '-'}</td>
 											<td><strong>{calculateHours(entry)}</strong></td>
 											<td>
-												{#if entry.vacation === 1}
-													<span class="badge bg-warning text-dark">
-														<i class="bi bi-umbrella"></i> Urlaub/Frei
-													</span>
-												{:else}
-													<span class="badge bg-success">
-														<i class="bi bi-check-circle"></i> Arbeitszeit
-													</span>
+												{#if !entry._placeholder}
+													{#if entry.vacation === 1}
+														<span class="badge bg-warning text-dark">
+															<i class="bi bi-umbrella"></i> Urlaub/Frei
+														</span>
+													{:else}
+														<span class="badge bg-success">
+															<i class="bi bi-check-circle"></i> Arbeitszeit
+														</span>
+													{/if}
 												{/if}
 											</td>
 											<td>{entry.comment || '-'}</td>
@@ -576,6 +798,461 @@
 								</tfoot>
 							</table>
 						</div>
+					{/if}
+				{/if}
+				{:else if activeTab === 'schedule'}
+				<!-- Rahmendienstplan -->
+					<div class="card">
+						<div class="card-header bg-primary text-white">
+							<h5 class="mb-0"><i class="bi bi-calendar-week"></i> Rahmendienstplan pro Wochentag</h5>
+						</div>
+						<div class="card-body">
+							{#if !hasSchedule}
+								<div class="alert alert-warning">
+									<i class="bi bi-exclamation-triangle-fill"></i>
+									<strong>Achtung:</strong> Der Rahmendienstplan für diese:n Mitarbeiter:in wurde noch nicht erstellt. Bitte trage die Arbeitszeiten ein, damit diese:r Mitarbeiter:in Zeiteinträge erfassen kann.
+								</div>
+							{/if}
+							
+							<form onsubmit={(e) => { e.preventDefault(); saveUserSchedule(); }}>
+								
+								<div class="mb-4">
+									<label class="form-label"><strong>Standard-Pausenzeit (Minuten)</strong></label>
+									<input
+										type="number"
+										class="form-control"
+										style="max-width: 200px;"
+										bind:value={defaultBreak}
+										min="0"
+									>
+								</div>
+								
+								<div class="table-responsive">
+									<table class="table table-bordered">
+										<thead class="table-light">
+											<tr>
+												<th>Wochentag</th>
+												<th>Freier Tag</th>
+												<th>Von</th>
+												<th>Bis</th>
+											</tr>
+										</thead>
+										<tbody>
+											<!-- Montag -->
+											<tr>
+												<td><strong>Montag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={mondayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={mondayStartHour}
+															min="0"
+															max="23"
+															disabled={mondayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={mondayStartMinute}
+															min="0"
+															max="59"
+															disabled={mondayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={mondayEndHour}
+															min="0"
+															max="23"
+															disabled={mondayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={mondayEndMinute}
+															min="0"
+															max="59"
+															disabled={mondayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Dienstag -->
+											<tr>
+												<td><strong>Dienstag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={tuesdayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={tuesdayStartHour}
+															min="0"
+															max="23"
+															disabled={tuesdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={tuesdayStartMinute}
+															min="0"
+															max="59"
+															disabled={tuesdayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={tuesdayEndHour}
+															min="0"
+															max="23"
+															disabled={tuesdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={tuesdayEndMinute}
+															min="0"
+															max="59"
+															disabled={tuesdayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Mittwoch -->
+											<tr>
+												<td><strong>Mittwoch</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={wednesdayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={wednesdayStartHour}
+															min="0"
+															max="23"
+															disabled={wednesdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={wednesdayStartMinute}
+															min="0"
+															max="59"
+															disabled={wednesdayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={wednesdayEndHour}
+															min="0"
+															max="23"
+															disabled={wednesdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={wednesdayEndMinute}
+															min="0"
+															max="59"
+															disabled={wednesdayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Donnerstag -->
+											<tr>
+												<td><strong>Donnerstag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={thursdayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={thursdayStartHour}
+															min="0"
+															max="23"
+															disabled={thursdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={thursdayStartMinute}
+															min="0"
+															max="59"
+															disabled={thursdayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={thursdayEndHour}
+															min="0"
+															max="23"
+															disabled={thursdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={thursdayEndMinute}
+															min="0"
+															max="59"
+															disabled={thursdayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Freitag -->
+											<tr>
+												<td><strong>Freitag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={fridayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={fridayStartHour}
+															min="0"
+															max="23"
+															disabled={fridayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={fridayStartMinute}
+															min="0"
+															max="59"
+															disabled={fridayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={fridayEndHour}
+															min="0"
+															max="23"
+															disabled={fridayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={fridayEndMinute}
+															min="0"
+															max="59"
+															disabled={fridayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Samstag -->
+											<tr>
+												<td><strong>Samstag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={saturdayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={saturdayStartHour}
+															min="0"
+															max="23"
+															disabled={saturdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={saturdayStartMinute}
+															min="0"
+															max="59"
+															disabled={saturdayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={saturdayEndHour}
+															min="0"
+															max="23"
+															disabled={saturdayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={saturdayEndMinute}
+															min="0"
+															max="59"
+															disabled={saturdayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+											
+											<!-- Sonntag -->
+											<tr>
+												<td><strong>Sonntag</strong></td>
+												<td>
+													<input 
+														type="checkbox" 
+														class="form-check-input" 
+														bind:checked={sundayIsFree}
+													>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={sundayStartHour}
+															min="0"
+															max="23"
+															disabled={sundayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={sundayStartMinute}
+															min="0"
+															max="59"
+															disabled={sundayIsFree}
+														>
+													</div>
+												</td>
+												<td>
+													<div class="d-flex gap-2 align-items-center">
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={sundayEndHour}
+															min="0"
+															max="23"
+															disabled={sundayIsFree}
+														>
+														<span>:</span>
+														<input 
+															type="number" 
+															class="form-control" 
+															style="width: 70px;"
+															bind:value={sundayEndMinute}
+															min="0"
+															max="59"
+															disabled={sundayIsFree}
+														>
+													</div>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+								
+								<button type="submit" class="btn btn-primary mt-3">
+									<i class="bi bi-check-circle"></i> Speichern
+								</button>
+							</form>
+						</div>
+					</div>
 					{/if}
 				{/if}
 			</div>

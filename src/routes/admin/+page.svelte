@@ -6,6 +6,7 @@
 	let showForm = $state(false);
 	let editingUser = $state(null);
 	let toast = $state('');
+	let showArchived = $state(false);
 	
 	// Formularfelder
 	let formName = $state('');
@@ -21,7 +22,10 @@
 	async function loadData() {
 		loading = true;
 		try {
-			const response = await fetch(`${base}/api/users`);
+			const url = showArchived 
+				? `${base}/api/users?include_archived=true`
+				: `${base}/api/users`;
+			const response = await fetch(url);
 			const result = await response.json();
 			
 			if (result.success) users = result.data;
@@ -121,6 +125,28 @@
 		}
 	}
 	
+	async function toggleArchive(user) {
+		const action = user.archived ? 'wiederherstellen' : 'archivieren';
+		if (!confirm(`Benutzer wirklich ${action}?`)) return;
+		
+		try {
+			const response = await fetch(`${base}/api/users/${user.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ archived: !user.archived })
+			});
+			const result = await response.json();
+			if (result.success) {
+				showToast(`Benutzer erfolgreich ${user.archived ? 'wiederhergestellt' : 'archiviert'}`);
+				loadData();
+			} else {
+				showToast(result.message);
+			}
+		} catch (e) {
+			showToast('Fehler beim ' + action);
+		}
+	}
+	
 	function showToast(message) {
 		toast = message;
 		setTimeout(() => { toast = ''; }, 3000);
@@ -128,6 +154,7 @@
 	
 	function getRoleBadges(user) {
 		const badges = [];
+		if (user.archived) badges.push({ text: 'Archiviert', class: 'bg-dark' });
 		if (user.is_admin) badges.push({ text: 'Admin', class: 'bg-danger' });
 		if (user.is_leitung) badges.push({ text: 'Leitung', class: 'bg-warning text-dark' });
 		if (!user.is_admin && !user.is_leitung) badges.push({ text: 'Mitarbeiter:in', class: 'bg-secondary' });
@@ -146,7 +173,20 @@
 		
 		<div class="card">
 			<div class="card-header bg-primary text-white">
-				<strong>Benutzerverwaltung</strong>
+				<div class="d-flex justify-content-between align-items-center">
+					<strong>Benutzerverwaltung</strong>
+					<div class="form-check form-check-inline mb-0">
+						<input 
+							type="checkbox" 
+							class="form-check-input" 
+							id="showArchivedCheck"
+							bind:checked={showArchived}
+						>
+						<label class="form-check-label" for="showArchivedCheck">
+							Auch archivierte Mitarbeiter:innen anzeigen
+						</label>
+					</div>
+				</div>
 			</div>
 			<div class="card-body">
 				{#if loading}
@@ -161,6 +201,7 @@
 									<th>ID</th>
 									<th>Name</th>
 									<th>E-Mail</th>
+									<th>Status</th>
 									<th>Berechtigungen</th>
 									<th>Erstellt am</th>
 									<th>Aktionen</th>
@@ -168,10 +209,17 @@
 							</thead>
 							<tbody>
 								{#each users as user}
-									<tr>
+									<tr class:table-secondary={user.archived}>
 										<td>{user.id}</td>
 										<td>{user.name}</td>
 										<td>{user.email}</td>
+										<td>
+											{#if user.archived}
+												<span class="badge bg-dark">Archiviert</span>
+											{:else}
+												<span class="badge bg-success">Aktiv</span>
+											{/if}
+										</td>
 										<td>
 											{#each getRoleBadges(user) as badge}
 												<span class="badge {badge.class} me-1">{badge.text}</span>
@@ -179,10 +227,19 @@
 										</td>
 										<td>{new Date(user.created_at).toLocaleDateString('de-DE')}</td>
 										<td>
-											<button class="btn btn-sm btn-outline-primary me-1" onclick={() => openEditForm(user)}>
+											<button class="btn btn-sm btn-outline-primary me-1" onclick={() => openEditForm(user)} disabled={user.archived}>
 												<i class="bi bi-pencil"></i> Bearbeiten
 											</button>
-											<button class="btn btn-sm btn-outline-danger" onclick={() => deleteUser(user.id)}>
+											{#if user.archived}
+												<button class="btn btn-sm btn-outline-success me-1" onclick={() => toggleArchive(user)}>
+													<i class="bi bi-arrow-counterclockwise"></i> Wiederherstellen
+												</button>
+											{:else}
+												<button class="btn btn-sm btn-outline-warning me-1" onclick={() => toggleArchive(user)}>
+													<i class="bi bi-archive"></i> Archivieren
+												</button>
+											{/if}
+											<button class="btn btn-sm btn-outline-danger" onclick={() => deleteUser(user.id)} disabled={user.archived}>
 												<i class="bi bi-trash"></i> Löschen
 											</button>
 										</td>

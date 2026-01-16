@@ -11,6 +11,7 @@ export async function GET({ params }) {
 				email, 
 				is_admin, 
 				is_leitung,
+				archived,
 				default_monday_start_hour,
 				default_monday_start_minute,
 				default_monday_end_hour,
@@ -84,6 +85,10 @@ export async function PUT({ params, request }) {
 		if (data.is_leitung !== undefined) {
 			updates.push('is_leitung = ?');
 			values.push(data.is_leitung ? 1 : 0);
+		}
+		if (data.archived !== undefined) {
+			updates.push('archived = ?');
+			values.push(data.archived ? 1 : 0);
 		}
 		
 		// Standard-Arbeitszeiten - separate Felder für jeden Wochentag

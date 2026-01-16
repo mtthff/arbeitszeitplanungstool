@@ -16,6 +16,56 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_admin` tinyint(1) DEFAULT '0',
+  `is_leitung` tinyint(1) DEFAULT '0',
+  `archived` tinyint(1) DEFAULT '0',
+  `default_monday_start_hour` int DEFAULT '9',
+  `default_monday_start_minute` int DEFAULT '0',
+  `default_monday_end_hour` int DEFAULT '17',
+  `default_monday_end_minute` int DEFAULT '0',
+  `default_tuesday_start_hour` int DEFAULT '9',
+  `default_tuesday_start_minute` int DEFAULT '0',
+  `default_tuesday_end_hour` int DEFAULT '17',
+  `default_tuesday_end_minute` int DEFAULT '0',
+  `default_wednesday_start_hour` int DEFAULT '9',
+  `default_wednesday_start_minute` int DEFAULT '0',
+  `default_wednesday_end_hour` int DEFAULT '17',
+  `default_wednesday_end_minute` int DEFAULT '0',
+  `default_thursday_start_hour` int DEFAULT '9',
+  `default_thursday_start_minute` int DEFAULT '0',
+  `default_thursday_end_hour` int DEFAULT '17',
+  `default_thursday_end_minute` int DEFAULT '0',
+  `default_friday_start_hour` int DEFAULT '9',
+  `default_friday_start_minute` int DEFAULT '0',
+  `default_friday_end_hour` int DEFAULT '17',
+  `default_friday_end_minute` int DEFAULT '0',
+  `default_saturday_start_hour` int DEFAULT NULL,
+  `default_saturday_start_minute` int DEFAULT NULL,
+  `default_saturday_end_hour` int DEFAULT NULL,
+  `default_saturday_end_minute` int DEFAULT NULL,
+  `default_sunday_start_hour` int DEFAULT NULL,
+  `default_sunday_start_minute` int DEFAULT NULL,
+  `default_sunday_end_hour` int DEFAULT NULL,
+  `default_sunday_end_minute` int DEFAULT NULL,
+  `default_break` int DEFAULT '30',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `carryover_corrections`
 --
 
@@ -75,55 +125,6 @@ CREATE TABLE `timetable` (
   KEY `idx_user_date` (`user_id`,`date`),
   CONSTRAINT `timetable_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=107 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `users`
---
-
-DROP TABLE IF EXISTS `users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `users` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_admin` tinyint(1) DEFAULT '0',
-  `is_leitung` tinyint(1) DEFAULT '0',
-  `default_monday_start_hour` int DEFAULT '9',
-  `default_monday_start_minute` int DEFAULT '0',
-  `default_monday_end_hour` int DEFAULT '17',
-  `default_monday_end_minute` int DEFAULT '0',
-  `default_tuesday_start_hour` int DEFAULT '9',
-  `default_tuesday_start_minute` int DEFAULT '0',
-  `default_tuesday_end_hour` int DEFAULT '17',
-  `default_tuesday_end_minute` int DEFAULT '0',
-  `default_wednesday_start_hour` int DEFAULT '9',
-  `default_wednesday_start_minute` int DEFAULT '0',
-  `default_wednesday_end_hour` int DEFAULT '17',
-  `default_wednesday_end_minute` int DEFAULT '0',
-  `default_thursday_start_hour` int DEFAULT '9',
-  `default_thursday_start_minute` int DEFAULT '0',
-  `default_thursday_end_hour` int DEFAULT '17',
-  `default_thursday_end_minute` int DEFAULT '0',
-  `default_friday_start_hour` int DEFAULT '9',
-  `default_friday_start_minute` int DEFAULT '0',
-  `default_friday_end_hour` int DEFAULT '17',
-  `default_friday_end_minute` int DEFAULT '0',
-  `default_saturday_start_hour` int DEFAULT NULL,
-  `default_saturday_start_minute` int DEFAULT NULL,
-  `default_saturday_end_hour` int DEFAULT NULL,
-  `default_saturday_end_minute` int DEFAULT NULL,
-  `default_sunday_start_hour` int DEFAULT NULL,
-  `default_sunday_start_minute` int DEFAULT NULL,
-  `default_sunday_end_hour` int DEFAULT NULL,
-  `default_sunday_end_minute` int DEFAULT NULL,
-  `default_break` int DEFAULT '30',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

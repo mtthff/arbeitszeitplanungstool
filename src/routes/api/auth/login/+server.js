@@ -16,7 +16,8 @@ export async function POST({ request, cookies }) {
 				name, 
 				email, 
 				is_admin, 
-				is_leitung
+				is_leitung,
+				archived
 			FROM users 
 			WHERE email = ? AND password = ?`,
 			[email, password]
@@ -27,6 +28,11 @@ export async function POST({ request, cookies }) {
 		}
 		
 		const user = users[0];
+		
+		// Prüfe ob Benutzer archiviert ist
+		if (user.archived) {
+			return json({ success: false, message: 'Dieser Benutzer ist archiviert und kann sich nicht mehr anmelden' }, { status: 403 });
+		}
 		
 		// Session-Cookie setzen
 		cookies.set('session', JSON.stringify({

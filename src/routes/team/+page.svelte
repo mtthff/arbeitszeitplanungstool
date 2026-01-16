@@ -28,6 +28,12 @@
 		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
 	];
 	
+	function formatTime(timeStr) {
+		if (!timeStr) return '-';
+		// Zeit ist im Format HH:MM:SS, wir wollen nur HH:MM
+		return timeStr.substring(0, 5);
+	}
+	
 	$effect(() => {
 		loadUsers();
 	});
@@ -37,7 +43,7 @@
 			const response = await fetch(`${base}/api/users`);
 			const result = await response.json();
 			if (result.success) {
-				// ALLE Benutzer laden (alle sind Mitarbeiter)
+				// Nur nicht-archivierte Benutzer laden
 				users = result.data;
 				if (users.length > 0 && !selectedUser) {
 					selectedUser = users[0].id;
@@ -493,8 +499,8 @@
 									{#each entries as entry}
 										<tr class:table-warning={entry.vacation === 1}>
 											<td>{formatDate(entry.date)}</td>
-											<td>{entry.starttime || '-'}</td>
-											<td>{entry.endtime || '-'}</td>
+									<td>{formatTime(entry.starttime)}</td>
+									<td>{formatTime(entry.endtime)}</td>
 											<td>{entry.breakduration || '-'}</td>
 											<td><strong>{calculateHours(entry)}</strong></td>
 											<td>

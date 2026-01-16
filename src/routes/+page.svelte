@@ -31,8 +31,7 @@
 	// Übertrag aus Vormonat
 	let previousMonthCarryover = $state(0);
 	let showCarryoverModal = $state(false);
-	let carryoverCorrectionHours = $state(0);
-	let carryoverCorrectionMinutes = $state(0);
+	let carryoverCorrectionDecimalHours = $state(0);
 	let carryoverIsPositive = $state(true);
 	
 	const months = [
@@ -572,7 +571,7 @@
 			const result = await response.json();
 			
 			if (result.success && result.data) {
-				previousMonthCarryover = result.data.corrected_carryover_minutes || 0;
+				previousMonthCarryover = result.data.carryover_minutes || 0;
 			} else {
 				previousMonthCarryover = 0;
 			}
@@ -584,8 +583,7 @@
 
 	function openCarryoverModal() {
 		const minutes = Math.abs(previousMonthCarryover);
-		carryoverCorrectionHours = Math.floor(minutes / 60);
-		carryoverCorrectionMinutes = minutes % 60;
+		carryoverCorrectionDecimalHours = (minutes / 60).toFixed(2);
 		carryoverIsPositive = previousMonthCarryover >= 0;
 		showCarryoverModal = true;
 	}
@@ -595,7 +593,7 @@
 			const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
 			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 			
-			const totalMinutes = (carryoverCorrectionHours * 60 + carryoverCorrectionMinutes) * (carryoverIsPositive ? 1 : -1);
+			const totalMinutes = Math.round(parseFloat(carryoverCorrectionDecimalHours || 0) * 60) * (carryoverIsPositive ? 1 : -1);
 			
 			const response = await fetch(`${base}/api/carryover-corrections`, {
 				method: 'POST',
@@ -604,7 +602,7 @@
 					user_id: user.id,
 					month: prevMonth,
 					year: prevYear,
-					corrected_carryover_minutes: totalMinutes
+					carryover_minutes: totalMinutes
 				})
 			});
 			
@@ -736,7 +734,7 @@
 			<h1><i class="bi bi-calendar3"></i> Meine Arbeitszeiten</h1>
 			<div>
 				<button class="btn btn-warning me-2" onclick={openCarryoverModal}>
-					<i class="bi bi-pencil-square"></i> Vormonat korrigieren
+					<i class="bi bi-pencil-square"></i> Übertrag aus Vormonat korrigieren
 				</button>
 				<button class="btn btn-success me-2" onclick={fillMonthWithDefaults}>
 					<i class="bi bi-calendar-check-fill"></i> Monat ausfüllen
@@ -750,11 +748,11 @@
 		<div class="card mb-4">
 			<div class="card-body">
 				<div class="d-flex justify-content-between align-items-center">
-					<button class="btn btn-outline-secondary" onclick={previousMonth}>
+					<button class="btn btn-outline-secondary" onclick={previousMonth} aria-label="Vorheriger Monat">
 						<i class="bi bi-chevron-left"></i>
 					</button>
 					<h3 class="mb-0">{months[currentMonth - 1]} {currentYear}</h3>
-					<button class="btn btn-outline-secondary" onclick={nextMonth}>
+					<button class="btn btn-outline-secondary" onclick={nextMonth} aria-label="Nächster Monat">
 						<i class="bi bi-chevron-right"></i>
 					</button>
 				</div>
@@ -781,6 +779,15 @@
 						</tr>
 					</thead>
 					<tbody>
+						<tr class="table-light fw-bold">
+							<td colspan="4" class="text-end"><strong>Übertrag aus Vormonat:</strong></td>
+							<td>
+								<strong class={previousMonthCarryover >= 0 ? 'text-success' : 'text-danger'}>
+									{formatMinutesToTime(previousMonthCarryover).text}
+								</strong>
+							</td>
+							<td colspan="3"></td>
+						</tr>
 						{#each allDays as day}
 							<tr class:table-warning={day.entry?.absence_type === 'vacation'} 
 							    class:table-info={day.entry?.absence_type === 'comp_time'}
@@ -871,17 +878,9 @@
 									{/if}
 								</td>
 								<td colspan="3"></td>
-							</tr>						<tr>
-							<td colspan="4" class="text-end"><strong>Summe aus Vormonat:</strong></td>
-							<td>
-								<strong class={previousMonthCarryover >= 0 ? 'text-success' : 'text-danger'}>
-									{formatMinutesToTime(previousMonthCarryover).text}
-								</strong>
-							</td>
-							<td colspan="3"></td>
-						</tr>
+							</tr>
 						<tr class="fw-bold table-primary">
-							<td colspan="4" class="text-end">Übertrag +/-:</td>
+							<td colspan="4" class="text-end">Übertrag in Folgemonat:</td>
 							<td>
 								{#if calculateDifference().text !== '-'}
 									{@const totalCarry = calculateTotalCarryover()}
@@ -915,8 +914,8 @@
 				</div>
 				<div class="modal-body">
 					<div class="mb-3">
-						<label class="form-label">Datum</label>
-						<input type="date" class="form-control" bind:value={formDate} required>
+						<label class="form-label" for="formDate">Datum</label>
+						<input type="date" class="form-control" id="formDate" bind:value={formDate} required>
 					</div>
 					
 					<div class="mb-3">
@@ -944,24 +943,24 @@
 					{#if formAbsenceType === 'work'}
 						<div class="row">
 							<div class="col-md-6 mb-3">
-								<label class="form-label">Startzeit</label>
-								<input type="time" class="form-control" bind:value={formStarttime}>
+								<label class="form-label" for="formStarttime">Startzeit</label>
+								<input type="time" class="form-control" id="formStarttime" bind:value={formStarttime}>
 							</div>
 							<div class="col-md-6 mb-3">
-								<label class="form-label">Endzeit</label>
-								<input type="time" class="form-control" bind:value={formEndtime}>
+								<label class="form-label" for="formEndtime">Endzeit</label>
+								<input type="time" class="form-control" id="formEndtime" bind:value={formEndtime}>
 							</div>
 						</div>
 						
 						<div class="mb-3">
-							<label class="form-label">Pause (Minuten)</label>
-							<input type="number" class="form-control" bind:value={formBreakduration} min="0" step="15">
+							<label class="form-label" for="formBreakduration">Pause (Minuten)</label>
+							<input type="number" class="form-control" id="formBreakduration" bind:value={formBreakduration} min="0" step="15">
 						</div>
 					{/if}
 					
 					<div class="mb-3">
-						<label class="form-label">Anmerkung</label>
-						<textarea class="form-control" bind:value={formComment} rows="2"></textarea>
+						<label class="form-label" for="formComment">Anmerkung</label>
+						<textarea class="form-control" id="formComment" bind:value={formComment} rows="2"></textarea>
 					</div>
 				</div>
 				<div class="modal-footer">
@@ -1030,24 +1029,20 @@
 									</label>
 								</div>
 							</div>
-							<div class="col-4">
-								<label class="form-label">Stunden</label>
-								<input 
-									type="number" 
-									class="form-control" 
-									bind:value={carryoverCorrectionHours} 
-									min="0"
-								>
-							</div>
-							<div class="col-4">
-								<label class="form-label">Minuten</label>
-								<input 
-									type="number" 
-									class="form-control" 
-									bind:value={carryoverCorrectionMinutes} 
-									min="0" 
-									max="59"
-								>
+							<div class="col-8">
+								<label class="form-label">Stunden (Dezimal)</label>
+								<div class="d-flex gap-2 align-items-center">
+									<input 
+										type="number" 
+										class="form-control" 
+										bind:value={carryoverCorrectionDecimalHours} 
+										min="0"
+										step="0.01"
+										placeholder="0.00"
+									>
+									<span class="text-muted">h</span>
+								</div>
+								<small class="form-text text-muted">z.B. 7.80 für 7 Stunden 48 Minuten</small>
 							</div>
 						</div>
 					</div>

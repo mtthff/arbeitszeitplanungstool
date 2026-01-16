@@ -319,21 +319,20 @@
 			// Fallback: 7:48h = 468 Minuten pro Tag × Beschäftigungsumfang
 			minutes = Math.round(workDays * 468 * (employmentPercentage / 100));
 		}
-		const hours = Math.floor(minutes / 60);
-		const mins = minutes % 60;
-		return `${hours}:${String(mins).padStart(2, '0')}h`;
+		// Dezimaldarstellung: Minuten in Dezimalstunden umrechnen
+		const decimalHours = (minutes / 60).toFixed(2);
+		return `${decimalHours}h`;
 	}
 	
-	function updateTargetMinutes(entry, hours, minutes) {
-		entry.target_minutes = parseInt(hours || 0) * 60 + parseInt(minutes || 0);
+	function updateTargetMinutes(entry, decimalHours) {
+		// Konvertiere Dezimalstunden in Minuten
+		const hours = parseFloat(decimalHours || 0);
+		entry.target_minutes = Math.round(hours * 60);
 	}
 	
-	function getHoursFromMinutes(minutes) {
-		return Math.floor((minutes || 0) / 60);
-	}
-	
-	function getMinutesFromMinutes(minutes) {
-		return (minutes || 0) % 60;
+	function getDecimalHoursFromMinutes(minutes) {
+		// Konvertiere Minuten in Dezimalstunden
+		return ((minutes || 0) / 60).toFixed(2);
 	}
 	
 	function updateWorkDays(entry, newWorkDays) {
@@ -570,23 +569,12 @@
 													<input 
 														type="number" 
 														class="form-control" 
-														style="width: 70px;"
-														value={getHoursFromMinutes(entry.target_minutes)}
-														oninput={(e) => updateTargetMinutes(entry, e.target.value, getMinutesFromMinutes(entry.target_minutes))}
+														style="width: 100px;"
+														value={getDecimalHoursFromMinutes(entry.target_minutes)}
+														oninput={(e) => updateTargetMinutes(entry, e.target.value)}
 														min="0"
-														placeholder="0"
-														disabled={employmentPercentage === 100}
-													>
-													<span>:</span>
-													<input 
-														type="number" 
-														class="form-control" 
-														style="width: 70px;"
-														value={getMinutesFromMinutes(entry.target_minutes)}
-														oninput={(e) => updateTargetMinutes(entry, getHoursFromMinutes(entry.target_minutes), e.target.value)}
-														min="0"
-														max="59"
-														placeholder="0"
+														step="0.01"
+														placeholder="0.00"
 														disabled={employmentPercentage === 100}
 													>
 													<span class="text-muted">h</span>

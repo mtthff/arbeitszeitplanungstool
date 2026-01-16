@@ -139,7 +139,7 @@ CREATE TABLE `timetable` (
   `starttime` time DEFAULT NULL,
   `endtime` time DEFAULT NULL,
   `breakduration` int DEFAULT '0',
-  `vacation` tinyint(1) DEFAULT '0',
+  `absence_type` varchar(20) DEFAULT NULL,
   `comment` text COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
   KEY `idx_user_date` (`user_id`,`date`),

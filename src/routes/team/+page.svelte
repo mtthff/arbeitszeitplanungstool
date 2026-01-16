@@ -138,7 +138,7 @@
 							starttime: null,
 							endtime: null,
 							breakduration: null,
-							vacation: dayOfWeek === 0 || dayOfWeek === 6 ? 1 : 0, // Wochenende als "frei" markieren
+							absence_type: dayOfWeek === 0 || dayOfWeek === 6 ? 'weekend' : null, // Wochenende als "frei" markieren
 							notes: dayOfWeek === 0 || dayOfWeek === 6 ? 'Wochenende' : '',
 							_placeholder: true
 						});
@@ -224,7 +224,7 @@
 	}
 	
 	function calculateHours(entry) {
-		if (entry.vacation || !entry.starttime || !entry.endtime) return '-';
+		if (entry.absence_type || !entry.starttime || !entry.endtime) return '-';
 		
 		const start = entry.starttime.split(':');
 		const end = entry.endtime.split(':');
@@ -241,7 +241,7 @@
 		let totalMinutes = 0;
 		
 		for (const entry of entries) {
-			if (entry.vacation) {
+			if (entry.absence_type) {
 				// Urlaubstag zählt als 7:48h (468 Minuten)
 				totalMinutes += 468;
 			} else if (entry.starttime && entry.endtime) {
@@ -261,11 +261,11 @@
 	}
 	
 	function countWorkDays() {
-		return entries.filter(entry => !entry.vacation).length;
+		return entries.filter(entry => !entry.absence_type).length;
 	}
 	
 	function countVacationDays() {
-		return entries.filter(entry => entry.vacation === 1 && !entry._placeholder).length;
+		return entries.filter(entry => entry.absence_type === 1 && !entry._placeholder).length;
 	}
 	
 	function calculateTargetHours() {
@@ -284,7 +284,7 @@
 		// Berechne Ist-Zeit in Minuten
 		let actualMinutes = 0;
 		for (const entry of entries) {
-			if (entry.vacation) {
+			if (entry.absence_type) {
 				actualMinutes += 468; // Urlaubstag = 7:48h
 			} else if (entry.starttime && entry.endtime) {
 				const start = entry.starttime.split(':');
@@ -366,7 +366,7 @@
 			// Berechne Ist-Zeit des Vormonats
 			let actualMinutes = 0;
 			for (const entry of entriesResult.data) {
-				if (entry.vacation) {
+				if (entry.absence_type) {
 					actualMinutes += 468; // Urlaubstag = 7:48h
 				} else if (entry.starttime && entry.endtime) {
 					const start = entry.starttime.split(':');
@@ -714,7 +714,7 @@
 									{#each entries as entry}
 										{@const isToday = entry.date === new Date().toISOString().split('T')[0]}
 										<tr 
-											class:table-warning={entry.vacation === 1 && !entry._placeholder}
+											class:table-warning={entry.absence_type === 1 && !entry._placeholder}
 											class:table-secondary={entry._placeholder}
 											class:table-info={isToday}
 										>
@@ -725,7 +725,7 @@
 											<td><strong>{calculateHours(entry)}</strong></td>
 											<td>
 												{#if !entry._placeholder}
-													{#if entry.vacation === 1}
+													{#if entry.absence_type === 1}
 														<span class="badge bg-warning text-dark">
 															<i class="bi bi-umbrella"></i> Urlaub/Frei
 														</span>

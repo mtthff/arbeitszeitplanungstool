@@ -25,13 +25,13 @@ export async function GET({ params }) {
 /** @type {import('./$types').RequestHandler} */
 export async function PUT({ params, request }) {
 	try {
-		const { date, starttime, endtime, breakduration, vacation, comment } = await request.json();
+		const { date, starttime, endtime, breakduration, absence_type, comment } = await request.json();
 		
 		await run(
 			`UPDATE timetable 
-			SET date = ?, starttime = ?, endtime = ?, breakduration = ?, vacation = ?, comment = ?
+			SET date = ?, starttime = ?, endtime = ?, breakduration = ?, absence_type = ?, comment = ?
 			WHERE id = ?`,
-			[date, starttime || null, endtime || null, breakduration || 0, vacation ? 1 : 0, comment || '', params.id]
+			[date, starttime || null, endtime || null, breakduration || 0, absence_type || null, comment || '', params.id]
 		);
 		
 		return json({ success: true, message: 'Eintrag erfolgreich aktualisiert' });

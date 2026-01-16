@@ -81,7 +81,7 @@ export async function createTables() {
 			starttime TIME,
 			endtime TIME,
 			breakduration INT DEFAULT 0,
-			vacation TINYINT(1) DEFAULT 0,
+			absence_type VARCHAR(20) DEFAULT NULL,
 			comment TEXT,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 			INDEX idx_user_date (user_id, date)

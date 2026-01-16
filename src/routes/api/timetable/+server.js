@@ -64,16 +64,16 @@ export async function POST({ request }) {
 	try {
 		const data = await request.json();
 		
-		const { user_id, date, starttime, endtime, breakduration, vacation, comment } = data;
+		const { user_id, date, starttime, endtime, breakduration, absence_type, comment } = data;
 		
 		if (!user_id || !date) {
 			return json({ success: false, message: 'user_id und date sind erforderlich' }, { status: 400 });
 		}
 
 		await run(
-			`INSERT INTO timetable (user_id, date, starttime, endtime, breakduration, vacation, comment) 
+			`INSERT INTO timetable (user_id, date, starttime, endtime, breakduration, absence_type, comment) 
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			[user_id, date, starttime || null, endtime || null, breakduration || 0, vacation ? 1 : 0, comment || '']
+			[user_id, date, starttime || null, endtime || null, breakduration || 0, absence_type || null, comment || '']
 		);
 		
 		const id = await getLastInsertId();

@@ -17,7 +17,7 @@
 	let formStarttime = $state('');
 	let formEndtime = $state('');
 	let formBreakduration = $state(30);
-	let formVacation = $state(false);
+	let formAbsenceType = $state('work'); // 'work', 'vacation', 'comp_time'
 	let formComment = $state('');
 	let toast = $state('');
 	
@@ -263,7 +263,7 @@
 			formBreakduration = 30;
 		}
 		
-		formVacation = false;
+		formAbsenceType = 'work';
 		formComment = '';
 		showForm = true;
 	}
@@ -274,7 +274,7 @@
 		formStarttime = entry.starttime || '';
 		formEndtime = entry.endtime || '';
 		formBreakduration = entry.breakduration || 30;
-		formVacation = entry.vacation === 1;
+		formAbsenceType = entry.absence_type || 'work';
 		formComment = entry.comment || '';
 		showForm = true;
 	}
@@ -354,15 +354,17 @@
 		formBreakduration = userData.default_break || 30;
 	}
 	
+
 	async function saveEntry() {
 		try {
+			const isAbsent = formAbsenceType === 'vacation' || formAbsenceType === 'comp_time';
 			const payload = {
 				user_id: user.id,
 				date: formDate,
-				starttime: formVacation ? null : formStarttime,
-				endtime: formVacation ? null : formEndtime,
-				breakduration: formVacation ? 0 : formBreakduration,
-				vacation: formVacation,
+				starttime: isAbsent ? null : formStarttime,
+				endtime: isAbsent ? null : formEndtime,
+				breakduration: isAbsent ? 0 : formBreakduration,
+				absence_type: formAbsenceType === 'work' ? null : formAbsenceType,
 				comment: formComment
 			};
 			
@@ -393,7 +395,7 @@
 			showToast('Fehler beim Speichern');
 		}
 	}
-	
+
 	async function deleteEntry(id) {
 		if (!confirm('Eintrag wirklich löschen?')) return;
 		
@@ -410,22 +412,23 @@
 			showToast('Fehler beim Löschen');
 		}
 	}
-	
+
 	function showToast(message) {
 		toast = message;
 		setTimeout(() => { toast = ''; }, 3000);
 	}
-	
+
 	function formatDate(dateStr) {
 		const date = new Date(dateStr + 'T00:00:00');
 		const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 		return `${days[date.getDay()]}, ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
 	}
-	
+
 	function calculateHours(entry) {
 		if (!entry) return '-';
 		
-		if (entry.vacation) return '7:48h';
+		if (entry.absence_type === 'vacation') return '7:48h';
+		if (entry.absence_type === 'comp_time') return '-';
 		
 		if (!entry.starttime || !entry.endtime) return '-';
 		
@@ -434,20 +437,24 @@
 		const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
 		const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
 		const workMin = endMin - startMin - (entry.breakduration || 0);
+		
 		const hours = Math.floor(workMin / 60);
 		const mins = workMin % 60;
 		
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
 	}
-	
+
 	function calculateTotalHours() {
 		let totalMinutes = 0;
 		
 		for (const day of allDays) {
 			if (day.entry) {
-				if (day.entry.vacation) {
-					// Urlaubstag zählt als 7:48h (468 Minuten)
+				if (day.entry.absence_type === 'vacation') {
+					// Urlaub zählt als 7:48h (468 Minuten)
 					totalMinutes += 468;
+				} else if (day.entry.absence_type === 'comp_time') {
+					// Freizeitausgleich zählt nicht zur Arbeitszeit
+					// (wird nicht addiert)
 				} else if (day.entry.starttime && day.entry.endtime) {
 					const start = day.entry.starttime.split(':');
 					const end = day.entry.endtime.split(':');
@@ -464,15 +471,19 @@
 		
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
 	}
-	
+
 	function countWorkDays() {
-		return allDays.filter(day => day.entry && !day.entry.vacation).length;
+		return allDays.filter(day => day.entry && !day.entry.absence_type).length;
 	}
-	
+
 	function countVacationDays() {
-		return allDays.filter(day => day.entry && day.entry.vacation).length;
+		return allDays.filter(day => day.entry && day.entry.absence_type === 'vacation').length;
 	}
-	
+
+	function countCompTimeDays() {
+		return allDays.filter(day => day.entry && day.entry.absence_type === 'comp_time').length;
+	}
+
 	function calculateTargetHours() {
 		// Nutze die gespeicherten target_minutes aus der Datenbank
 		const minutes = targetMinutes;
@@ -480,7 +491,7 @@
 		const mins = minutes % 60;
 		return `${hours}:${String(mins).padStart(2, '0')}h`;
 	}
-	
+
 	function calculateDifference() {
 		if (targetMinutes === 0) {
 			return { text: '-', isPositive: true, minutes: 0 };
@@ -490,8 +501,10 @@
 		let actualMinutes = 0;
 		for (const day of allDays) {
 			if (day.entry) {
-				if (day.entry.vacation) {
-					actualMinutes += 468; // Urlaubstag = 7:48h
+				if (day.entry.absence_type === 'vacation') {
+					actualMinutes += 468; // Urlaub = 7:48h
+				} else if (day.entry.absence_type === 'comp_time') {
+					// Freizeitausgleich zählt nicht zur Arbeitszeit
 				} else if (day.entry.starttime && day.entry.endtime) {
 					const start = day.entry.starttime.split(':');
 					const end = day.entry.endtime.split(':');
@@ -503,140 +516,95 @@
 			}
 		}
 		
-		// Berechne Soll-Zeit in Minuten (aus Datenbank)
-		const targetMins = targetMinutes;
+		// Addiere den Übertrag aus dem Vormonat
+		actualMinutes += previousMonthCarryover;
 		
-		// Differenz
-		const diffMinutes = actualMinutes - targetMins;
+		const diffMinutes = actualMinutes - targetMinutes;
 		const isPositive = diffMinutes >= 0;
 		const absDiff = Math.abs(diffMinutes);
 		const hours = Math.floor(absDiff / 60);
 		const mins = absDiff % 60;
 		
-		const sign = isPositive ? '+' : '-';
-		return { text: `${sign}${hours}:${String(mins).padStart(2, '0')}h`, isPositive, minutes: diffMinutes };
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive,
+			minutes: diffMinutes
+		};
 	}
-	
+
+	function calculateTotalCarryover() {
+		const diff = calculateDifference();
+		if (diff.text === '-') {
+			return { text: '-', isPositive: true };
+		}
+		
+		// Differenz ist bereits inklusive previousMonthCarryover
+		const totalMinutes = diff.minutes;
+		const isPositive = totalMinutes >= 0;
+		const absDiff = Math.abs(totalMinutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive
+		};
+	}
+
+	function formatMinutesToTime(minutes) {
+		const isPositive = minutes >= 0;
+		const absDiff = Math.abs(minutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive
+		};
+	}
+
 	async function loadPreviousMonthCarryover() {
 		try {
-			// Berechne Vormonat
-			let prevMonth = currentMonth - 1;
-			let prevYear = currentYear;
-			if (prevMonth === 0) {
-				prevMonth = 12;
-				prevYear--;
-			}
+			const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 			
-			// Prüfe erst, ob eine manuelle Korrektur existiert
-			const correctionResponse = await fetch(
-				`${base}/api/carryover-corrections?user_id=${user.id}&year=${prevYear}&month=${prevMonth}`
-			);
-			const correctionResult = await correctionResponse.json();
+			const response = await fetch(`${base}/api/carryover-corrections?user_id=${user.id}&month=${prevMonth}&year=${prevYear}`);
+			const result = await response.json();
 			
-			if (correctionResult.success && correctionResult.data) {
-				// Verwende die manuelle Korrektur
-				previousMonthCarryover = correctionResult.data.carryover_minutes;
-				return;
-			}
-			
-			// Falls keine Korrektur existiert, berechne automatisch
-			// Lade Einträge des Vormonats
-			const entriesResponse = await fetch(
-				`${base}/api/timetable?user_id=${user.id}&month=${prevMonth}&year=${prevYear}`
-			);
-			const entriesResult = await entriesResponse.json();
-			
-			// Lade Soll-Stunden des Vormonats
-			const targetResponse = await fetch(
-				`${base}/api/target-hours?user_id=${user.id}&year=${prevYear}`
-			);
-			const targetResult = await targetResponse.json();
-			
-			if (!entriesResult.success || !targetResult.success) {
+			if (result.success && result.data) {
+				previousMonthCarryover = result.data.corrected_carryover_minutes || 0;
+			} else {
 				previousMonthCarryover = 0;
-				return;
 			}
-			
-			const prevMonthData = targetResult.data.find(d => d.month === prevMonth);
-			const prevTargetWorkDays = prevMonthData ? prevMonthData.work_days : 0;
-			const prevTargetMinutes = prevMonthData ? prevMonthData.target_minutes : 0;
-			
-			if (prevTargetMinutes === 0) {
-				previousMonthCarryover = 0;
-				return;
-			}
-			
-			// Berechne Ist-Zeit des Vormonats
-			let actualMinutes = 0;
-			for (const entry of entriesResult.data) {
-				if (entry.vacation) {
-					actualMinutes += 468; // Urlaubstag = 7:48h
-				} else if (entry.starttime && entry.endtime) {
-					const start = entry.starttime.split(':');
-					const end = entry.endtime.split(':');
-					const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
-					const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
-					const workMin = endMin - startMin - (entry.breakduration || 0);
-					actualMinutes += workMin;
-				}
-			}
-			
-			// Berechne Soll-Zeit des Vormonats (aus Datenbank)
-			const targetMins = prevTargetMinutes;
-			
-			// Differenz = Übertrag
-			previousMonthCarryover = actualMinutes - targetMins;
 		} catch (e) {
 			console.error('Fehler beim Laden des Vormonats-Übertrags:', e);
 			previousMonthCarryover = 0;
 		}
 	}
-	
-	function formatMinutesToTime(minutes) {
-		const isPositive = minutes >= 0;
-		const absMinutes = Math.abs(minutes);
-		const hours = Math.floor(absMinutes / 60);
-		const mins = absMinutes % 60;
-		const sign = isPositive ? '+' : '-';
-		return { text: `${sign}${hours}:${String(mins).padStart(2, '0')}h`, isPositive };
-	}
-	
-	function calculateTotalCarryover() {
-		const currentDiff = calculateDifference();
-		const totalMinutes = currentDiff.minutes + previousMonthCarryover;
-		return formatMinutesToTime(totalMinutes);
-	}
-	
+
 	function openCarryoverModal() {
-		// Konvertiere aktuelle previousMonthCarryover in Stunden/Minuten
-		const absMinutes = Math.abs(previousMonthCarryover);
-		carryoverCorrectionHours = Math.floor(absMinutes / 60);
-		carryoverCorrectionMinutes = absMinutes % 60;
+		const minutes = Math.abs(previousMonthCarryover);
+		carryoverCorrectionHours = Math.floor(minutes / 60);
+		carryoverCorrectionMinutes = minutes % 60;
 		carryoverIsPositive = previousMonthCarryover >= 0;
 		showCarryoverModal = true;
 	}
-	
+
 	async function saveCarryoverCorrection() {
-		// Berechne Vormonat (der korrigiert werden soll)
-		let prevMonth = currentMonth - 1;
-		let prevYear = currentYear;
-		if (prevMonth === 0) {
-			prevMonth = 12;
-			prevYear--;
-		}
-		
-		// Berechne Gesamtminuten
-		const totalMinutes = (carryoverCorrectionHours * 60 + carryoverCorrectionMinutes) * (carryoverIsPositive ? 1 : -1);
-		
 		try {
+			const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+			
+			const totalMinutes = (carryoverCorrectionHours * 60 + carryoverCorrectionMinutes) * (carryoverIsPositive ? 1 : -1);
+			
 			const response = await fetch(`${base}/api/carryover-corrections`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					user_id: user.id,
-					year: prevYear,
 					month: prevMonth,
-					carryover_minutes: totalMinutes
+					year: prevYear,
+					corrected_carryover_minutes: totalMinutes
 				})
 			});
 			
@@ -644,183 +612,120 @@
 			if (result.success) {
 				showToast('Korrektur gespeichert');
 				showCarryoverModal = false;
-				// Neu laden
 				await loadPreviousMonthCarryover();
 			} else {
-				showToast('Fehler beim Speichern');
+				showToast(result.message || 'Fehler beim Speichern');
 			}
 		} catch (e) {
-			console.error('Fehler:', e);
+			console.error('Fehler beim Speichern:', e);
 			showToast('Fehler beim Speichern');
 		}
 	}
-	
+
 	async function deleteCarryoverCorrection() {
-		if (!confirm('Möchten Sie die manuelle Korrektur wirklich löschen? Der Übertrag wird dann automatisch berechnet.')) {
-			return;
-		}
-		
-		// Berechne Vormonat (der korrigiert werden soll)
-		let prevMonth = currentMonth - 1;
-		let prevYear = currentYear;
-		if (prevMonth === 0) {
-			prevMonth = 12;
-			prevYear--;
-		}
+		if (!confirm('Korrektur wirklich löschen?')) return;
 		
 		try {
-			const response = await fetch(
-				`${base}/api/carryover-corrections?user_id=${user.id}&year=${prevYear}&month=${prevMonth}`,
-				{ method: 'DELETE' }
-			);
+			const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+			
+			const response = await fetch(`${base}/api/carryover-corrections?user_id=${user.id}&month=${prevMonth}&year=${prevYear}`, {
+				method: 'DELETE'
+			});
 			
 			const result = await response.json();
 			if (result.success) {
 				showToast('Korrektur gelöscht');
 				showCarryoverModal = false;
-				// Neu laden
 				await loadPreviousMonthCarryover();
 			} else {
-				showToast('Fehler beim Löschen');
+				showToast(result.message || 'Fehler beim Löschen');
 			}
 		} catch (e) {
-			console.error('Fehler:', e);
+			console.error('Fehler beim Löschen:', e);
 			showToast('Fehler beim Löschen');
 		}
 	}
 
 	async function fillMonthWithDefaults() {
-		if (!userData) {
-			showToast('Benutzerdaten nicht geladen');
-			return;
-		}
-		
-		if (!confirm('Alle verbleibenden Tage dieses Monats mit Standardarbeitszeiten ausfüllen?')) {
-			return;
-		}
-		
-		loading = true;
-		let savedCount = 0;
-		let errorCount = 0;
+		if (!confirm('Möchten Sie alle fehlenden Arbeitstage mit den Standard-Arbeitszeiten ausfüllen?')) return;
 		
 		try {
-			// Heute als Startdatum
-			const today = new Date();
-			const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+			let addedCount = 0;
 			
-			// Nur Tage ab heute und im aktuell gewählten Monat
-			const daysToFill = allDays.filter(day => {
-				// Nur Tage ohne Eintrag
-				if (day.entry) return false;
-				
-				// Nur wenn im aktuell gewählten Monat
-				const dayDate = new Date(day.date + 'T00:00:00');
-				if (dayDate.getFullYear() !== currentYear || dayDate.getMonth() + 1 !== currentMonth) {
-					return false;
-				}
-				
-				// Nur Tage ab heute
-				return day.date >= todayStr;
-			});
-			
-			for (const day of daysToFill) {
-				let startHour = null, startMinute = null, endHour = null, endMinute = null;
-				
-				// Hole Standardzeiten für diesen Wochentag
-				switch(day.dayOfWeek) {
-					case 1: // Montag
-						startHour = userData.default_monday_start_hour;
-						startMinute = userData.default_monday_start_minute;
-						endHour = userData.default_monday_end_hour;
-						endMinute = userData.default_monday_end_minute;
-						break;
-					case 2: // Dienstag
-						startHour = userData.default_tuesday_start_hour;
-						startMinute = userData.default_tuesday_start_minute;
-						endHour = userData.default_tuesday_end_hour;
-						endMinute = userData.default_tuesday_end_minute;
-						break;
-					case 3: // Mittwoch
-						startHour = userData.default_wednesday_start_hour;
-						startMinute = userData.default_wednesday_start_minute;
-						endHour = userData.default_wednesday_end_hour;
-						endMinute = userData.default_wednesday_end_minute;
-						break;
-					case 4: // Donnerstag
-						startHour = userData.default_thursday_start_hour;
-						startMinute = userData.default_thursday_start_minute;
-						endHour = userData.default_thursday_end_hour;
-						endMinute = userData.default_thursday_end_minute;
-						break;
-					case 5: // Freitag
-						startHour = userData.default_friday_start_hour;
-						startMinute = userData.default_friday_start_minute;
-						endHour = userData.default_friday_end_hour;
-						endMinute = userData.default_friday_end_minute;
-						break;
-					case 6: // Samstag
-						startHour = userData.default_saturday_start_hour;
-						startMinute = userData.default_saturday_start_minute;
-						endHour = userData.default_saturday_end_hour;
-						endMinute = userData.default_saturday_end_minute;
-						break;
-					case 0: // Sonntag
-						startHour = userData.default_sunday_start_hour;
-						startMinute = userData.default_sunday_start_minute;
-						endHour = userData.default_sunday_end_hour;
-						endMinute = userData.default_sunday_end_minute;
-						break;
-				}
-				
-				// Wenn der Tag als freier Tag konfiguriert ist (NULL-Werte), überspringe
-				if (startHour === null || startMinute === null || endHour === null || endMinute === null) {
-					continue;
-				}
-				
-				// Formatiere Zeiten
-				const starttime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
-				const endtime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
-				
-				const payload = {
-					user_id: user.id,
-					date: day.date,
-					starttime: starttime,
-					endtime: endtime,
-					breakduration: userData.default_break || 30,
-					vacation: false,
-					comment: ''
-				};
-				
-				try {
-					const response = await fetch(`${base}/api/timetable`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(payload)
-					});
+			for (const day of allDays) {
+				// Nur an Wochentagen (Mo-Fr) ohne vorhandenen Eintrag
+				if (!day.entry && day.dayOfWeek >= 1 && day.dayOfWeek <= 5) {
+					// Hole Standard-Arbeitszeiten für diesen Wochentag
+					let startHour = null, startMinute = null, endHour = null, endMinute = null;
 					
-					const result = await response.json();
-					if (result.success) {
-						savedCount++;
-					} else {
-						errorCount++;
+					if (userData) {
+						switch(day.dayOfWeek) {
+							case 1: // Montag
+								startHour = userData.default_monday_start_hour;
+								startMinute = userData.default_monday_start_minute;
+								endHour = userData.default_monday_end_hour;
+								endMinute = userData.default_monday_end_minute;
+								break;
+							case 2: // Dienstag
+								startHour = userData.default_tuesday_start_hour;
+								startMinute = userData.default_tuesday_start_minute;
+								endHour = userData.default_tuesday_end_hour;
+								endMinute = userData.default_tuesday_end_minute;
+								break;
+							case 3: // Mittwoch
+								startHour = userData.default_wednesday_start_hour;
+								startMinute = userData.default_wednesday_start_minute;
+								endHour = userData.default_wednesday_end_hour;
+								endMinute = userData.default_wednesday_end_minute;
+								break;
+							case 4: // Donnerstag
+								startHour = userData.default_thursday_start_hour;
+								startMinute = userData.default_thursday_start_minute;
+								endHour = userData.default_thursday_end_hour;
+								endMinute = userData.default_thursday_end_minute;
+								break;
+							case 5: // Freitag
+								startHour = userData.default_friday_start_hour;
+								startMinute = userData.default_friday_start_minute;
+								endHour = userData.default_friday_end_hour;
+								endMinute = userData.default_friday_end_minute;
+								break;
+						}
+						
+						// Nur hinzufügen wenn Start- und Endzeit definiert sind
+						if (startHour !== null && startMinute !== null && endHour !== null && endMinute !== null) {
+							const starttime = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+							const endtime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+							
+							const response = await fetch(`${base}/api/timetable`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									user_id: user.id,
+									date: day.date,
+									starttime: starttime,
+									endtime: endtime,
+									breakduration: userData.default_break || 30,
+									absence_type: null,
+									comment: ''
+								})
+							});
+							
+							const result = await response.json();
+							if (result.success) {
+								addedCount++;
+							}
+						}
 					}
-				} catch (e) {
-					errorCount++;
 				}
 			}
 			
-			// Lade Einträge neu
+			showToast(`${addedCount} Einträge hinzugefügt`);
 			await loadEntries();
-			
-			if (savedCount > 0) {
-				showToast(`${savedCount} Tag(e) erfolgreich ausgefüllt${errorCount > 0 ? `, ${errorCount} Fehler` : ''}`);
-			} else {
-				showToast('Keine Tage zum Ausfüllen gefunden');
-			}
 		} catch (e) {
-			showToast('Fehler beim Ausfüllen des Monats');
-		} finally {
-			loading = false;
+			console.error('Fehler beim Ausfüllen:', e);
+			showToast('Fehler beim Ausfüllen');
 		}
 	}
 </script>
@@ -877,7 +782,8 @@
 					</thead>
 					<tbody>
 						{#each allDays as day}
-							<tr class:table-warning={day.entry?.vacation === 1} 
+							<tr class:table-warning={day.entry?.absence_type === 'vacation'} 
+							    class:table-info={day.entry?.absence_type === 'comp_time'}
 							    class:table-secondary={day.dayOfWeek === 0 || day.dayOfWeek === 6}
 							    class:table-primary={day.isToday}
 							    style={day.isToday ? 'border-left: 4px solid #0d6efd;' : ''}>
@@ -893,9 +799,13 @@
 									<td>{day.entry.breakduration || '-'}</td>
 									<td><strong>{calculateHours(day.entry)}</strong></td>
 									<td>
-										{#if day.entry.vacation === 1}
+										{#if day.entry.absence_type === 'vacation'}
 											<span class="badge bg-warning text-dark">
-												<i class="bi bi-umbrella"></i> Urlaub/Frei
+												<i class="bi bi-umbrella"></i> Urlaub
+											</span>
+										{:else if day.entry.absence_type === 'comp_time'}
+											<span class="badge bg-info text-dark">
+												<i class="bi bi-clock-history"></i> Freizeitausgleich
 											</span>
 										{:else}
 											<span class="badge bg-success">
@@ -934,7 +844,8 @@
 							<td><strong class="text-primary">{calculateTotalHours()}</strong></td>
 							<td colspan="3">
 								<span class="badge bg-success me-2">{countWorkDays()} Arbeitstage</span>
-								<span class="badge bg-warning text-dark">{countVacationDays()} Urlaub</span>
+								<span class="badge bg-warning text-dark me-2">{countVacationDays()} Urlaub</span>
+							<span class="badge bg-info text-dark">{countCompTimeDays()} Freizeitausgleich</span>
 							</td>
 						</tr>
 						{#if targetMinutes > 0}
@@ -1008,14 +919,29 @@
 						<input type="date" class="form-control" bind:value={formDate} required>
 					</div>
 					
-					<div class="mb-3 form-check">
-						<input type="checkbox" class="form-check-input" id="vacationCheck" bind:checked={formVacation}>
-						<label class="form-check-label" for="vacationCheck">
-							Urlaub / Freiwunsch
-						</label>
+					<div class="mb-3">
+						<label class="form-label">Typ</label>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="absenceType" id="typeWork" value="work" bind:group={formAbsenceType}>
+							<label class="form-check-label" for="typeWork">
+								Arbeitszeit
+							</label>
+						</div>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="absenceType" id="typeVacation" value="vacation" bind:group={formAbsenceType}>
+							<label class="form-check-label" for="typeVacation">
+								Urlaub
+							</label>
+						</div>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="absenceType" id="typeCompTime" value="comp_time" bind:group={formAbsenceType}>
+							<label class="form-check-label" for="typeCompTime">
+								Freizeitausgleich
+							</label>
+						</div>
 					</div>
 					
-					{#if !formVacation}
+					{#if formAbsenceType === 'work'}
 						<div class="row">
 							<div class="col-md-6 mb-3">
 								<label class="form-label">Startzeit</label>

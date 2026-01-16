@@ -4,6 +4,7 @@ import { query, run } from '$lib/db';
 /**
  * GET /api/target-hours?user_id=1&year=2025
  * Holt alle Sollarbeitszeiten für einen User und ein Jahr
+ * Joined mit work_days_calendar für globale Arbeitstage
  */
 export async function GET({ url }) {
 	try {
@@ -16,7 +17,19 @@ export async function GET({ url }) {
 		}
 
 		const results = await query(
-			'SELECT th.*, u.employment_percentage FROM target_hours th JOIN users u ON th.user_id = u.id WHERE th.user_id = ? AND th.year = ? ORDER BY th.month',
+			`SELECT 
+				th.id, 
+				th.user_id, 
+				th.year, 
+				th.month, 
+				th.target_minutes,
+				wdc.work_days,
+				u.employment_percentage
+			FROM target_hours th
+			LEFT JOIN work_days_calendar wdc ON th.year = wdc.year AND th.month = wdc.month
+			JOIN users u ON th.user_id = u.id
+			WHERE th.user_id = ? AND th.year = ?
+			ORDER BY th.month`,
 			[user_id, year]
 		);
 
@@ -35,11 +48,11 @@ export async function GET({ url }) {
 export async function POST({ request }) {
 	try {
 		const data = await request.json();
-		const { user_id, year, month, work_days, target_minutes: customTargetMinutes } = data;
+		const { user_id, year, month, target_minutes: customTargetMinutes } = data;
 
-		if (!user_id || !year || !month || work_days === undefined) {
-			console.error('Validierung fehlgeschlagen:', { user_id, year, month, work_days });
-			return json({ success: false, message: 'Alle Felder erforderlich' }, { status: 400 });
+		if (!user_id || !year || !month) {
+			console.error('Validierung fehlgeschlagen:', { user_id, year, month });
+			return json({ success: false, message: 'user_id, year und month erforderlich' }, { status: 400 });
 		}
 
 		let target_minutes;
@@ -48,7 +61,7 @@ export async function POST({ request }) {
 		if (customTargetMinutes !== undefined && customTargetMinutes !== null) {
 			target_minutes = customTargetMinutes;
 		} else {
-			// Ansonsten berechne basierend auf employment_percentage
+			// Ansonsten berechne basierend auf work_days_calendar und employment_percentage
 			const userResult = await query(
 				'SELECT employment_percentage FROM users WHERE id = ?',
 				[user_id]
@@ -58,8 +71,15 @@ export async function POST({ request }) {
 				return json({ success: false, message: 'Benutzer nicht gefunden' }, { status: 404 });
 			}
 
+			// Hole work_days aus globaler Tabelle
+			const workDaysResult = await query(
+				'SELECT work_days FROM work_days_calendar WHERE year = ? AND month = ?',
+				[year, month]
+			);
+
+			const workDays = workDaysResult.length > 0 ? workDaysResult[0].work_days : 0;
 			const employmentPercentage = userResult[0].employment_percentage || 100;
-			target_minutes = Math.round(work_days * 468 * (employmentPercentage / 100));
+			target_minutes = Math.round(workDays * 468 * (employmentPercentage / 100));
 		}
 
 		// Prüfe ob Eintrag existiert
@@ -71,14 +91,14 @@ export async function POST({ request }) {
 		if (existing.length > 0) {
 			// UPDATE
 			await run(
-				'UPDATE target_hours SET work_days = ?, target_minutes = ? WHERE user_id = ? AND year = ? AND month = ?',
-				[work_days, target_minutes, user_id, year, month]
+				'UPDATE target_hours SET target_minutes = ? WHERE user_id = ? AND year = ? AND month = ?',
+				[target_minutes, user_id, year, month]
 			);
 		} else {
 			// INSERT
 			await run(
-				'INSERT INTO target_hours (user_id, year, month, work_days, target_minutes) VALUES (?, ?, ?, ?, ?)',
-				[user_id, year, month, work_days, target_minutes]
+				'INSERT INTO target_hours (user_id, year, month, target_minutes) VALUES (?, ?, ?, ?)',
+				[user_id, year, month, target_minutes]
 			);
 		}
 

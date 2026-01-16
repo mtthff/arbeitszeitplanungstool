@@ -262,13 +262,12 @@
 				targetHours = Array(12).fill(0).map((_, i) => {
 					const month = i + 1;
 					const existing = loadedData.find(d => d.month === month);
-					const workDays = existing ? existing.work_days : 0;
-					// Nutze gespeicherte target_minutes oder berechne sie neu
+					const workDays = existing ? existing.work_days : 0; // work_days kommt nun aus work_days_calendar
 					const storedMinutes = existing ? existing.target_minutes : 0;
 					const calculatedMinutes = Math.round(workDays * 468 * (employmentPercentage / 100));
 					return {
 						month: month,
-						work_days: workDays,
+						work_days: workDays, // read-only, aus globaler Tabelle
 						target_minutes: storedMinutes || calculatedMinutes
 					};
 				});
@@ -280,13 +279,12 @@
 	
 	async function saveTargetHours() {
 		try {
-			// Speichere alle Monate
+			// Speichere nur die target_minutes (work_days ist read-only aus globaler Tabelle)
 			for (const entry of targetHours) {
 				const payload = {
 					user_id: user.id,
 					year: currentYear,
 					month: entry.month,
-					work_days: entry.work_days || 0,
 					target_minutes: entry.target_minutes || 0
 				};
 				
@@ -1019,15 +1017,9 @@
 										<tr>
 											<td><strong>{monthNames[entry.month - 1]}</strong></td>
 											<td>
-												<input 
-													type="number" 
-													class="form-control" 
-													style="width: 100px;"
-													value={entry.work_days}
-													oninput={(e) => updateWorkDays(entry, e.target.value)}
-													min="0"
-													max="31"
-												>
+												<span class="text-muted">
+													{entry.work_days} Tage
+												</span>
 											</td>
 											<td>
 												<div class="d-flex gap-2 align-items-center">
@@ -1039,6 +1031,7 @@
 														oninput={(e) => updateTargetMinutes(entry, e.target.value, getMinutesFromMinutes(entry.target_minutes))}
 														min="0"
 														placeholder="0"
+														disabled={employmentPercentage === 100}
 													>
 													<span>:</span>
 													<input 
@@ -1050,6 +1043,7 @@
 														min="0"
 														max="59"
 														placeholder="0"
+														disabled={employmentPercentage === 100}
 													>
 													<span class="text-muted">h</span>
 												</div>

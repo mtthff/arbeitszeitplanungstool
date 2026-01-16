@@ -50,6 +50,11 @@
 								<i class="bi bi-people"></i> Team-Übersicht
 							</a>
 						</li>
+						<li class="nav-item">
+							<a class="nav-link" href="{base}/arbeitskalender">
+								<i class="bi bi-calendar3"></i> Arbeitskalender
+							</a>
+						</li>
 					{/if}
 					{#if user.is_admin}
 						<li class="nav-item">

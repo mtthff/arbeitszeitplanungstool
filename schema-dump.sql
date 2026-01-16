@@ -99,12 +99,30 @@ CREATE TABLE `target_hours` (
   `user_id` int NOT NULL,
   `year` int NOT NULL,
   `month` int NOT NULL,
-  `work_days` int NOT NULL,
   `target_minutes` int DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_user_year_month` (`user_id`,`year`,`month`),
   CONSTRAINT `target_hours_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `work_days_calendar`
+--
+
+DROP TABLE IF EXISTS `work_days_calendar`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `work_days_calendar` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `year` int NOT NULL,
+  `month` int NOT NULL,
+  `work_days` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_year_month` (`year`,`month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

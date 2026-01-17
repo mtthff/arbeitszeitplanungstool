@@ -66,6 +66,15 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+-- Default-Admin-Nutzer für frische Setups
+INSERT INTO `users` (`name`, `email`, `password`, `is_admin`, `is_leitung`)
+VALUES ('default', 'default@example.com', 'default67', 1, 1)
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `password` = VALUES(`password`),
+  `is_admin` = VALUES(`is_admin`),
+  `is_leitung` = VALUES(`is_leitung`);
+
 --
 -- Table structure for table `carryover_corrections`
 --

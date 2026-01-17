@@ -52,8 +52,8 @@
 							</a>
 						</li>
 						<li class="nav-item">
-							<a class="nav-link" href="{base}/arbeitskalender">
-								<i class="bi bi-calendar3"></i> Arbeitskalender
+						<a class="nav-link" href="{base}/jahresplanung">
+							<i class="bi bi-calendar3"></i> Jahresplanung
 							</a>
 						</li>
 					{/if}

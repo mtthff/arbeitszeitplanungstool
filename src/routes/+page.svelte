@@ -7,6 +7,7 @@
 	let currentYear = $state(new Date().getFullYear());
 	let currentMonth = $state(new Date().getMonth() + 1);
 	let entries = $state([]);
+	let holidays = $state([]);
 	let allDays = $state([]);
 	let loading = $state(false);
 	let showForm = $state(false);
@@ -50,6 +51,7 @@
 	$effect(() => {
 		loadUserData();
 		loadEntries();
+		loadHolidays();
 		loadTargetHours();
 		loadPreviousMonthCarryover();
 	});
@@ -108,6 +110,26 @@
 		}
 	}
 	
+	async function loadHolidays() {
+		try {
+			const response = await fetch(`${base}/api/holidays?year=${currentYear}`);
+			const result = await response.json();
+			
+			if (result.success) {
+				holidays = result.data.map(h => {
+					const d = new Date(h.date); // nutzt lokalen TZ-Offset, verhindert Verschiebung um einen Tag
+					const year = d.getFullYear();
+					const month = String(d.getMonth() + 1).padStart(2, '0');
+					const day = String(d.getDate()).padStart(2, '0');
+					return { ...h, date: `${year}-${month}-${day}` };
+				});
+				generateAllDays();
+			}
+		} catch (e) {
+			console.error('Fehler beim Laden der Feiertage:', e);
+		}
+	}
+	
 	async function loadTargetHours() {
 		try {
 			const response = await fetch(`${base}/api/target-hours?user_id=${user.id}&year=${currentYear}`);
@@ -153,6 +175,7 @@
 			
 			const date = new Date(dateStr + 'T00:00:00');
 			const dayOfWeek = date.getDay();
+			const holiday = holidays.find(h => h.date === dateStr);
 			
 			days.push({
 				date: dateStr,
@@ -160,7 +183,8 @@
 				dayOfWeek: dayOfWeek,
 				dayName: dayNames[dayOfWeek],
 				entry: entry || null,
-				isToday: dateStr === todayStr
+				isToday: dateStr === todayStr,
+				holiday: holiday || null
 			});
 		}
 		
@@ -652,8 +676,8 @@
 			let addedCount = 0;
 			
 			for (const day of allDays) {
-				// Nur an Wochentagen (Mo-Fr) ohne vorhandenen Eintrag
-				if (!day.entry && day.dayOfWeek >= 1 && day.dayOfWeek <= 5) {
+				// Nur an Wochentagen (Mo-Fr) ohne vorhandenen Eintrag und ohne Feiertag
+				if (!day.entry && !day.holiday && day.dayOfWeek >= 1 && day.dayOfWeek <= 5) {
 					// Hole Standard-Arbeitszeiten für diesen Wochentag
 					let startHour = null, startMinute = null, endHour = null, endMinute = null;
 					
@@ -790,11 +814,14 @@
 						{#each allDays as day}
 							<tr class:table-warning={day.entry?.absence_type === 'vacation'} 
 							    class:table-info={day.entry?.absence_type === 'comp_time'}
-							    class:table-secondary={day.dayOfWeek === 0 || day.dayOfWeek === 6}
+							    class:table-secondary={day.holiday || day.dayOfWeek === 0 || day.dayOfWeek === 6}
 							    class:table-primary={day.isToday}
 							    style={day.isToday ? 'border-left: 4px solid #0d6efd;' : ''}>
 								<td>
 									<strong>{day.dayName}</strong>, {day.day}.{currentMonth}.{currentYear}
+									{#if day.holiday}
+										<span class="badge bg-secondary ms-2"><i class="bi bi-star"></i> {day.holiday.name}</span>
+									{/if}
 									{#if day.isToday}
 										<span class="badge bg-primary ms-2">Heute</span>
 									{/if}
@@ -834,7 +861,7 @@
 									<td>-</td>
 									<td>-</td>
 									<td>-</td>
-									<td>-</td>
+									<td>{day.holiday ? day.holiday.name : '-'}</td>
 									<td>
 										<button class="btn btn-sm btn-outline-success" onclick={() => openNewForm(day.date)}>
 											<i class="bi bi-plus-circle"></i>

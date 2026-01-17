@@ -10,7 +10,7 @@ export async function load({ cookies }) {
 	
 	const user = JSON.parse(sessionCookie);
 	
-	// Nur Leitung darf Arbeitskalender sehen
+	// Nur Leitung darf Jahresplanung sehen
 	if (!user.is_leitung) {
 		throw redirect(303, `${base}/`);
 	}

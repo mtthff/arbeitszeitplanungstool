@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
+
+dotenv.config();
 
 /** @type {import('mysql2/promise').Pool | null} */
 let pool = null;
@@ -13,7 +16,7 @@ export function initDB() {
 	pool = mysql.createPool({
 		host: process.env.DB_HOST || '127.0.0.1',
 		port: parseInt(process.env.DB_PORT || '3306'),
-		user: process.env.DB_USER || 'root',
+		user: process.env.DB_USER || 'jugastu',
 		password: process.env.DB_PASSWORD,
 		database: process.env.DB_NAME,
 		waitForConnections: true,

@@ -183,7 +183,7 @@
 							bind:checked={showArchived}
 						>
 						<label class="form-check-label" for="showArchivedCheck">
-							Auch archivierte Mitarbeiter:innen anzeigen
+							Archivierte anzeigen
 						</label>
 					</div>
 				</div>

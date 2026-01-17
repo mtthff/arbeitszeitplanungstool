@@ -733,14 +733,8 @@
 		<div class="d-flex justify-content-between align-items-center mb-4">
 			<h1><i class="bi bi-calendar3"></i> Meine Arbeitszeiten</h1>
 			<div>
-				<button class="btn btn-warning me-2" onclick={openCarryoverModal}>
-					<i class="bi bi-pencil-square"></i> Übertrag aus Vormonat korrigieren
-				</button>
 				<button class="btn btn-success me-2" onclick={fillMonthWithDefaults}>
-					<i class="bi bi-calendar-check-fill"></i> Monat ausfüllen
-				</button>
-				<button class="btn btn-primary" onclick={openNewForm}>
-					<i class="bi bi-plus-circle"></i> Neuer Eintrag
+					Monat ausfüllen
 				</button>
 			</div>
 		</div>
@@ -786,7 +780,12 @@
 									{formatMinutesToTime(previousMonthCarryover).text}
 								</strong>
 							</td>
-							<td colspan="3"></td>
+							<td colspan="2"></td>
+							<td>
+								<button class="btn btn-sm btn-warning" onclick={openCarryoverModal}>
+									<i class="bi bi-pencil-square"></i> Übertrag korrigieren
+								</button>
+							</td>
 						</tr>
 						{#each allDays as day}
 							<tr class:table-warning={day.entry?.absence_type === 'vacation'} 

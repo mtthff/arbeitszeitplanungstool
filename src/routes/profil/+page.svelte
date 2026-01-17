@@ -268,12 +268,12 @@
 					// @ts-ignore
 					const existing = loadedData.find(d => d.month === month);
 					const workDays = existing ? existing.work_days : 0; // work_days kommt nun aus work_days_calendar
-					const storedMinutes = existing ? existing.target_minutes : 0;
+					const storedMinutes = existing ? existing.target_minutes : null;
 					const calculatedMinutes = Math.round(workDays * 468 * (employmentPercentage / 100));
 					return {
 						month: month,
 						work_days: workDays, // read-only, aus globaler Tabelle
-						target_minutes: storedMinutes || calculatedMinutes
+						target_minutes: storedMinutes ?? calculatedMinutes
 					};
 				});
 			}
@@ -286,12 +286,16 @@
 		try {
 			// Speichere nur die target_minutes (work_days ist read-only aus globaler Tabelle)
 			for (const entry of targetHours) {
+				// Rechne target_minutes immer aus work_days und Beschäftigungsumfang
+				const computedMinutes = Math.round((entry.work_days || 0) * 468 * (employmentPercentage / 100));
+				entry.target_minutes = computedMinutes;
+
 				const payload = {
 					user_id: user.id,
 					year: currentYear,
 					month: entry.month,
 					// @ts-ignore
-					target_minutes: entry.target_minutes || 0
+					target_minutes: computedMinutes
 				};
 				
 				

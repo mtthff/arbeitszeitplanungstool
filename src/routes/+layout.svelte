@@ -93,4 +93,16 @@
 	:global(body) {
 		background-color: #f8f9fa;
 	}
+
+	/* Navbar-Texte durchgängig weiß */
+	:global(.navbar-dark .navbar-brand),
+	:global(.navbar-dark .navbar-nav .nav-link) {
+		color: #ffffff;
+	}
+
+	:global(.navbar-dark .navbar-nav .nav-link:hover),
+	:global(.navbar-dark .navbar-nav .nav-link:focus),
+	:global(.navbar-dark .navbar-nav .nav-link.active) {
+		color: #f8f9fa;
+	}
 </style>

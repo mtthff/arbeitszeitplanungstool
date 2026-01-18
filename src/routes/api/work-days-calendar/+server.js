@@ -27,6 +27,7 @@ export async function GET({ url }) {
 /**
  * POST /api/work-days-calendar
  * Erstellt oder aktualisiert Arbeitstage für einen Monat
+ * und aktualisiert automatisch target_hours für alle Benutzer
  */
 export async function POST({ request }) {
 	try {
@@ -57,8 +58,46 @@ export async function POST({ request }) {
 			);
 		}
 
-		return json({ success: true, message: 'Arbeitstage gespeichert' });
+		// Automatisch target_hours für alle Benutzer aktualisieren/erstellen
+		await updateTargetHoursForAllUsers(year, month, work_days);
+
+		return json({ success: true, message: 'Arbeitstage gespeichert und Sollarbeitszeiten aktualisiert' });
 	} catch (error) {
 		return json({ success: false, message: error.message }, { status: 500 });
+	}
+}
+
+/**
+ * Aktualisiert oder erstellt target_hours für alle Benutzer basierend auf neuen work_days
+ * @param {number} year 
+ * @param {number} month 
+ * @param {number} work_days 
+ */
+async function updateTargetHoursForAllUsers(year, month, work_days) {
+	// Hole alle Benutzer
+	const users = await query('SELECT id, employment_percentage FROM users');
+
+	for (const user of users) {
+		const targetMinutes = Math.round(work_days * 468 * (user.employment_percentage / 100));
+
+		// Prüfe ob target_hours Eintrag existiert
+		const existing = await query(
+			'SELECT id FROM target_hours WHERE user_id = ? AND year = ? AND month = ?',
+			[user.id, year, month]
+		);
+
+		if (existing.length > 0) {
+			// UPDATE
+			await run(
+				'UPDATE target_hours SET target_minutes = ? WHERE user_id = ? AND year = ? AND month = ?',
+				[targetMinutes, user.id, year, month]
+			);
+		} else {
+			// INSERT
+			await run(
+				'INSERT INTO target_hours (user_id, year, month, target_minutes) VALUES (?, ?, ?, ?)',
+				[user.id, year, month, targetMinutes]
+			);
+		}
 	}
 }

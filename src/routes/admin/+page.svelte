@@ -14,6 +14,7 @@
 	let formPassword = $state('');
 	let formIsAdmin = $state(false);
 	let formIsLeitung = $state(false);
+	let formEmploymentPercentage = $state(100);
 	
 	$effect(() => {
 		loadData();
@@ -43,6 +44,7 @@
 		formPassword = '';
 		formIsAdmin = false;
 		formIsLeitung = false;
+		formEmploymentPercentage = 100;
 		showForm = true;
 	}
 	
@@ -53,6 +55,7 @@
 		formPassword = '';
 		formIsAdmin = user.is_admin === 1;
 		formIsLeitung = user.is_leitung === 1;
+		formEmploymentPercentage = user.employment_percentage || 100;
 		showForm = true;
 	}
 	
@@ -72,7 +75,8 @@
 				name: formName,
 				email: formEmail,
 				is_admin: formIsAdmin,
-				is_leitung: formIsLeitung
+				is_leitung: formIsLeitung,
+				employment_percentage: formEmploymentPercentage
 			};
 			
 			// Passwort nur hinzufügen, wenn es ausgefüllt wurde
@@ -346,6 +350,12 @@
 							Passwort {editingUser ? '(leer lassen für keine Änderung)' : ''}
 						</label>
 						<input type="password" class="form-control" bind:value={formPassword}>
+					</div>
+					
+					<div class="mb-3">
+						<label class="form-label">Arbeitsumfang (%)</label>
+						<input type="number" class="form-control" bind:value={formEmploymentPercentage} min="0" max="100" step="5" required>
+						<small class="text-muted">Prozentsatz des vollen Arbeitsumfangs (z.B. 100 für Vollzeit, 50 für Teilzeit)</small>
 					</div>
 					
 					<div class="mb-3">

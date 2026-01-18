@@ -67,6 +67,7 @@
 	// Sollarbeitszeit
 	let currentYear = $state(new Date().getFullYear());
 	let targetHours = $state(Array(12).fill(0).map((_, i) => ({ month: i + 1, work_days: 0 })));
+	let decimalHours = $state(Array(12).fill('0.00'));
 	
 	const monthNames = [
 		'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
@@ -276,6 +277,8 @@
 						target_minutes: storedMinutes ?? calculatedMinutes
 					};
 				});
+				// Aktualisiere decimalHours Array
+				decimalHours = targetHours.map(e => getDecimalHoursFromMinutes(e.target_minutes));
 			}
 		} catch (e) {
 			console.error('Fehler beim Laden der Sollarbeitszeit:', e);
@@ -286,16 +289,21 @@
 		try {
 			// Speichere nur die target_minutes (work_days ist read-only aus globaler Tabelle)
 			for (const entry of targetHours) {
-				// Rechne target_minutes immer aus work_days und Beschäftigungsumfang
-				const computedMinutes = Math.round((entry.work_days || 0) * 468 * (employmentPercentage / 100));
-				entry.target_minutes = computedMinutes;
+				// Berechne nur automatisch wenn employmentPercentage === 100 (Feld ist disabled)
+				// Ansonsten: nutze den vom Benutzer eingegebenen Wert
+				let targetMinutes = entry.target_minutes;
+				if (employmentPercentage === 100) {
+					// Bei 100% Auslastung automatisch berechnen (Feld ist deaktiviert)
+					targetMinutes = Math.round((entry.work_days || 0) * 468 * (employmentPercentage / 100));
+					entry.target_minutes = targetMinutes;
+				}
 
 				const payload = {
 					user_id: user.id,
 					year: currentYear,
 					month: entry.month,
 					// @ts-ignore
-					target_minutes: computedMinutes
+					target_minutes: targetMinutes
 				};
 				
 				
@@ -589,12 +597,12 @@
 														type="number" 
 														class="form-control" 
 														style="width: 100px;"
-														value={getDecimalHoursFromMinutes(entry.target_minutes)}
-														oninput={(e) => updateTargetMinutes(entry, e.target.value)}
-														min="0"
-														step="0.01"
-														placeholder="0.00"
+														bind:value={decimalHours[index]}
+														onchange={() => updateTargetMinutes(entry, decimalHours[index])}
 														disabled={employmentPercentage === 100}
+														min="0"
+														step="any"
+														lang="de"
 													>
 													<span class="text-muted">h</span>
 												</div>

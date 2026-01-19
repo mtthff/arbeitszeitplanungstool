@@ -520,7 +520,7 @@
 			return { text: '-', isPositive: true, minutes: 0 };
 		}
 		
-		// Berechne Ist-Zeit in Minuten
+		// Berechne Ist-Zeit in Minuten (NUR für diesen Monat, ohne Übertrag)
 		let actualMinutes = 0;
 		for (const day of allDays) {
 			if (day.entry) {
@@ -539,9 +539,7 @@
 			}
 		}
 		
-		// Addiere den Übertrag aus dem Vormonat
-		actualMinutes += previousMonthCarryover;
-		
+		// Differenz NUR für diesen Monat (ohne Vormonats-Übertrag)
 		const diffMinutes = actualMinutes - targetMinutes;
 		const isPositive = diffMinutes >= 0;
 		const absDiff = Math.abs(diffMinutes);
@@ -561,8 +559,8 @@
 			return { text: '-', isPositive: true };
 		}
 		
-		// Differenz ist bereits inklusive previousMonthCarryover
-		const totalMinutes = diff.minutes;
+		// Addiere die Monatsdifferenz zum Vormonats-Übertrag
+		const totalMinutes = diff.minutes + previousMonthCarryover;
 		const isPositive = totalMinutes >= 0;
 		const absDiff = Math.abs(totalMinutes);
 		const hours = Math.floor(absDiff / 60);
@@ -595,13 +593,147 @@
 			const result = await response.json();
 			
 			if (result.success && result.data) {
+				// Manuell korrigierter Wert aus der Datenbank
 				previousMonthCarryover = result.data.carryover_minutes || 0;
 			} else {
-				previousMonthCarryover = 0;
+				// Kein manueller Wert vorhanden - berechne den Übertrag
+				previousMonthCarryover = await calculateCarryoverFromLastKnownValue(prevMonth, prevYear);
 			}
 		} catch (e) {
 			console.error('Fehler beim Laden des Vormonats-Übertrags:', e);
 			previousMonthCarryover = 0;
+		}
+	}
+
+	async function calculateCarryoverFromLastKnownValue(targetMonth, targetYear) {
+		try {
+			// Finde den jüngsten (neuesten) manuellen Eintrag vor dem Zielmonat
+			const lastKnown = await findLastKnownCarryover(targetMonth, targetYear);
+			
+			// Wenn kein manueller Eintrag gefunden wurde, starte bei 0
+			let accumulatedCarryover = lastKnown.carryover;
+			let startMonth = lastKnown.month;
+			let startYear = lastKnown.year;
+			
+			// Berechne von startMonth bis targetMonth vorwärts
+			while (startYear < targetYear || (startYear === targetYear && startMonth < targetMonth)) {
+				// Nächsten Monat berechnen
+				startMonth++;
+				if (startMonth > 12) {
+					startMonth = 1;
+					startYear++;
+				}
+				
+				// Berechne Differenz für diesen Monat
+				const monthDiff = await calculateMonthDifference(startMonth, startYear, accumulatedCarryover);
+				accumulatedCarryover += monthDiff;
+			}
+			
+			return accumulatedCarryover;
+		} catch (e) {
+			console.error('Fehler beim Berechnen des Übertrags:', e);
+			return 0;
+		}
+	}
+
+	async function findLastKnownCarryover(beforeMonth, beforeYear) {
+		// Suche rückwärts nach dem letzten manuellen Eintrag (max 24 Monate zurück)
+		let searchMonth = beforeMonth;
+		let searchYear = beforeYear;
+		
+		for (let i = 0; i < 24; i++) {
+			searchMonth--;
+			if (searchMonth < 1) {
+				searchMonth = 12;
+				searchYear--;
+			}
+			
+			try {
+				const response = await fetch(`${base}/api/carryover-corrections?user_id=${user.id}&month=${searchMonth}&year=${searchYear}`);
+				const result = await response.json();
+				
+				if (result.success && result.data) {
+					return {
+						carryover: result.data.carryover_minutes || 0,
+						month: searchMonth,
+						year: searchYear
+					};
+				}
+			} catch (e) {
+				console.error(`Fehler beim Suchen in ${searchMonth}/${searchYear}:`, e);
+			}
+		}
+		
+		// Kein manueller Eintrag gefunden, starte mit 0 im Monat vor beforeMonth
+		searchMonth = beforeMonth - 1;
+		searchYear = beforeYear;
+		if (searchMonth < 1) {
+			searchMonth = 12;
+			searchYear--;
+		}
+		
+		return {
+			carryover: 0,
+			month: searchMonth,
+			year: searchYear
+		};
+	}
+
+	async function calculateMonthDifference(month, year, previousCarryover) {
+		try {
+			// Lade Einträge des Monats
+			const entriesResponse = await fetch(
+				`${base}/api/timetable?user_id=${user.id}&month=${month}&year=${year}`
+			);
+			const entriesResult = await entriesResponse.json();
+			
+			if (!entriesResult.success) {
+				return 0;
+			}
+			
+			// Lade Sollarbeitszeit des Monats
+			const targetResponse = await fetch(`${base}/api/target-hours?user_id=${user.id}&year=${year}`);
+			
+			if (!targetResponse.ok) {
+				return 0;
+			}
+			
+			const targetResult = await targetResponse.json();
+			
+			if (!targetResult.success) {
+				return 0;
+			}
+			
+			const monthData = targetResult.data.find(d => d.month === month);
+			const targetMinutesMonth = monthData ? monthData.target_minutes : 0;
+			
+			if (targetMinutesMonth === 0) {
+				return 0;
+			}
+			
+			// Berechne Ist-Zeit des Monats
+			let actualMinutes = 0;
+			for (const entry of entriesResult.data) {
+				if (entry.absence_type === 'vacation') {
+					actualMinutes += 468; // Urlaub = 7:48h
+				} else if (entry.absence_type === 'comp_time') {
+					// Freizeitausgleich zählt nicht zur Arbeitszeit
+				} else if (entry.starttime && entry.endtime) {
+					const start = entry.starttime.split(':');
+					const end = entry.endtime.split(':');
+					const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+					const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+					const workMin = endMin - startMin - (entry.breakduration || 0);
+					actualMinutes += workMin;
+				}
+			}
+			
+			// Differenz berechnen: Nur die reine Monatsdifferenz ohne Übertrag
+			// Der Übertrag wird in calculateCarryoverFromLastKnownValue() separat behandelt
+			return actualMinutes - targetMinutesMonth;
+		} catch (e) {
+			console.error(`Fehler beim Berechnen der Differenz für ${month}/${year}:`, e);
+			return 0;
 		}
 	}
 
@@ -924,6 +1056,22 @@
 					{/if}					</tfoot>
 				</table>
 			</div>
+			
+			{#if !loading}
+				<div class="card mt-4">
+					<div class="card-body">
+						<div class="d-flex justify-content-between align-items-center">
+							<button class="btn btn-outline-secondary" onclick={previousMonth} aria-label="Vorheriger Monat">
+								<i class="bi bi-chevron-left"></i>
+							</button>
+							<h3 class="mb-0">{months[currentMonth - 1]} {currentYear}</h3>
+							<button class="btn btn-outline-secondary" onclick={nextMonth} aria-label="Nächster Monat">
+								<i class="bi bi-chevron-right"></i>
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>

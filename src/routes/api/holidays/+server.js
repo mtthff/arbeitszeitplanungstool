@@ -2,8 +2,9 @@ import { json } from '@sveltejs/kit';
 import { initDB } from '$lib/db.js';
 
 export async function GET({ url, locals }) {
-	if (!locals.user || !locals.user.is_leitung) {
-		return json({ success: false, message: 'Keine Berechtigung' }, { status: 403 });
+	// Feiertage sind für alle Benutzer sichtbar
+	if (!locals.user) {
+		return json({ success: false, message: 'Nicht angemeldet' }, { status: 401 });
 	}
 
 	const year = url.searchParams.get('year');

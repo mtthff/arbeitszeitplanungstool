@@ -6,6 +6,12 @@
 	
 	let user = $derived(data.user);
 	
+	let currentDate = $derived.by(() => {
+		const now = new Date();
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		return `${month}.${now.getFullYear()}`;
+	});
+	
 	async function logout() {
 		const response = await fetch(`${base}/api/auth/logout`, {
 			method: 'POST'
@@ -89,9 +95,26 @@
 	{@render children()}
 </main>
 
+<footer class="footer mt-auto py-3 bg-light border-top">
+	<div class="container-fluid text-center text-muted">
+		<small>
+			<i class="bi bi-info-circle"></i> Arbeitszeitplanungstool v{__APP_VERSION__} 
+			<span class="mx-2">|</span>
+			{currentDate}
+		</small>
+	</div>
+</footer>
+
 <style>
 	:global(body) {
 		background-color: #f8f9fa;
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+	}
+
+	:global(main) {
+		flex: 1;
 	}
 
 	/* Navbar-Texte durchgängig weiß */

@@ -32,7 +32,7 @@
 	// Übertrag aus Vormonat
 	let previousMonthCarryover = $state(0);
 	let showCarryoverModal = $state(false);
-	let carryoverCorrectionDecimalHours = $state(0);
+	let carryoverCorrectionTime = $state('00:00');
 	let carryoverIsPositive = $state(true);
 	
 	const months = [
@@ -739,7 +739,9 @@
 
 	function openCarryoverModal() {
 		const minutes = Math.abs(previousMonthCarryover);
-		carryoverCorrectionDecimalHours = (minutes / 60).toFixed(2);
+		const hours = Math.floor(minutes / 60);
+		const mins = minutes % 60;
+		carryoverCorrectionTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 		carryoverIsPositive = previousMonthCarryover >= 0;
 		showCarryoverModal = true;
 	}
@@ -749,7 +751,11 @@
 			const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
 			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 			
-			const totalMinutes = Math.round(parseFloat(carryoverCorrectionDecimalHours || 0) * 60) * (carryoverIsPositive ? 1 : -1);
+			// Konvertiere hh:mm zu Minuten
+			const timeParts = carryoverCorrectionTime.split(':');
+			const hours = parseInt(timeParts[0] || 0);
+			const mins = parseInt(timeParts[1] || 0);
+			const totalMinutes = (hours * 60 + mins) * (carryoverIsPositive ? 1 : -1);
 			
 			const response = await fetch(`${base}/api/carryover-corrections`, {
 				method: 'POST',
@@ -1211,19 +1217,15 @@
 								</div>
 							</div>
 							<div class="col-8">
-								<label class="form-label">Stunden (Dezimal)</label>
+								<label class="form-label">Zeit (hh:mm)</label>
 								<div class="d-flex gap-2 align-items-center">
 									<input 
-										type="number" 
+										type="time" 
 										class="form-control" 
-										bind:value={carryoverCorrectionDecimalHours} 
-										min="0"
-										step="0.01"
-										placeholder="0.00"
+										bind:value={carryoverCorrectionTime} 
 									>
-									<span class="text-muted">h</span>
 								</div>
-								<small class="form-text text-muted">z.B. 7.80 für 7 Stunden 48 Minuten</small>
+								<small class="form-text text-muted">z.B. 07:48 für 7 Stunden 48 Minuten</small>
 							</div>
 						</div>
 					</div>

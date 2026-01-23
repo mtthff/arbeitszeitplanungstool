@@ -1,5 +1,7 @@
 <script>
 	import { base } from '$app/paths';
+	import { onMount } from 'svelte';
+	let jsPDF, autoTable;
 	
 	let { data } = $props();
 	let user = $derived(data.user);
@@ -894,7 +896,248 @@
 			showToast('Fehler beim Ausfüllen');
 		}
 	}
+
+	onMount(async () => {
+		// Dynamischer Import von jsPDF und autoTable
+		if (typeof window !== 'undefined') {
+			const jsPDFModule = await import('jspdf');
+			jsPDF = jsPDFModule.default;
+			const autoTableModule = await import('jspdf-autotable');
+			autoTable = autoTableModule.default;
+		}
+	});
+
+	async function printMonth() {
+		if (!jsPDF || !autoTable) {
+			alert('PDF-Bibliothek wird geladen, bitte versuchen Sie es in einem Moment erneut.');
+			return;
+		}
+
+		try {
+			// Erstelle neues PDF im Querformat
+			const doc = new jsPDF({
+				orientation: 'landscape',
+				unit: 'mm',
+				format: 'a4'
+			});
+
+			// Titel und Benutzerinfo
+			doc.setFontSize(16);
+			doc.setFont(undefined, 'bold');
+			doc.text(`Arbeitszeiten ${months[currentMonth - 1]} ${currentYear}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+			
+			doc.setFontSize(10);
+			doc.setFont(undefined, 'normal');
+			doc.text(`${user.first_name} ${user.last_name}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+
+			// Extrahiere Tabellendaten
+			const tableHead = [['Datum', 'Von', 'Bis', 'Pause (Min)', 'Arbeitszeit', 'Status', 'Anmerkung']];
+			
+			// Übertrag-Zeile
+			const carryoverRow = [
+				{ content: 'Übertrag aus Vormonat:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [245, 245, 245] } },
+				{ content: formatMinutesToTime(previousMonthCarryover).text, styles: { fontStyle: 'bold', textColor: previousMonthCarryover >= 0 ? [0, 128, 0] : [200, 0, 0], fillColor: [245, 245, 245] } },
+				{ content: '', colSpan: 2, styles: { fillColor: [245, 245, 245] } }
+			];
+
+			// Hauptdaten
+			const tableBody = [];
+			tableBody.push(carryoverRow);
+
+			allDays.forEach(day => {
+				const dayLabel = `${day.dayName}, ${day.day}.${currentMonth}.${currentYear}${day.holiday ? ' - ' + day.holiday.name : ''}`;
+				
+				if (day.entry) {
+					let status = 'Arbeitszeit';
+					if (day.entry.absence_type === 'vacation') status = 'Urlaub';
+					if (day.entry.absence_type === 'comp_time') status = 'Freizeitausgleich';
+
+					let rowStyle = {};
+					if (day.entry.absence_type === 'vacation' || day.entry.absence_type === 'comp_time') {
+						rowStyle = { fillColor: [250, 250, 250] };
+					}
+
+					tableBody.push([
+						dayLabel,
+						formatTime(day.entry.starttime),
+						formatTime(day.entry.endtime),
+						day.entry.breakduration || '-',
+						calculateHours(day.entry),
+						status,
+						day.entry.comment || '-'
+					]);
+				} else {
+					const isWeekendOrHoliday = day.holiday || day.dayOfWeek === 0 || day.dayOfWeek === 6;
+					tableBody.push({
+						content: [
+							dayLabel,
+							'-',
+							'-',
+							'-',
+							'-',
+							day.holiday ? 'Feiertag' : '-',
+							day.holiday ? day.holiday.name : '-'
+						],
+						styles: isWeekendOrHoliday ? { fillColor: [240, 240, 240] } : {}
+					});
+				}
+			});
+
+			// Footer-Zeilen (Zusammenfassung)
+			const footerRows = [
+				[
+					{ content: 'Ist-Arbeitszeit:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: calculateTotalHours(), styles: { fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: `${countWorkDays()} Arbeitstage | ${countVacationDays()} Urlaub | ${countCompTimeDays()} Freizeitausgleich`, colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+				]
+			];
+
+			if (targetMinutes > 0) {
+				footerRows.push([
+					{ content: 'Soll-Arbeitszeit:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: calculateTargetHours(), styles: { fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: targetWorkDays > 0 ? `${targetWorkDays} Arbeitstage (Soll)` : '', colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+				]);
+
+				const diff = calculateDifference();
+				if (diff.text !== '-') {
+					footerRows.push([
+						{ content: 'Differenz:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+						{ content: diff.text, styles: { fontStyle: 'bold', textColor: diff.isPositive ? [0, 128, 0] : [200, 0, 0], fillColor: [230, 230, 230] } },
+						{ content: '', colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+					]);
+
+					const totalCarry = calculateTotalCarryover();
+					footerRows.push([
+						{ content: 'Übertrag in Folgemonat:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [200, 220, 240] } },
+						{ content: totalCarry.text, styles: { fontStyle: 'bold', textColor: totalCarry.isPositive ? [0, 128, 0] : [200, 0, 0], fillColor: [200, 220, 240] } },
+						{ content: 'Kumulierter Übertrag', colSpan: 2, styles: { fillColor: [200, 220, 240] } }
+					]);
+				}
+			}
+
+			tableBody.push(...footerRows);
+
+			// Erstelle Tabelle mit autoTable
+			autoTable(doc, {
+				head: tableHead,
+				body: tableBody,
+				startY: 28,
+				theme: 'grid',
+				styles: {
+					fontSize: 8,
+					cellPadding: 2,
+					lineColor: [150, 150, 150],
+					lineWidth: 0.1
+				},
+				headStyles: {
+					fillColor: [220, 220, 220],
+					textColor: [0, 0, 0],
+					fontStyle: 'bold',
+					halign: 'left'
+				},
+				columnStyles: {
+					0: { cellWidth: 60 },  // Datum
+					1: { cellWidth: 18, halign: 'center' },  // Von
+					2: { cellWidth: 18, halign: 'center' },  // Bis
+					3: { cellWidth: 20, halign: 'center' },  // Pause
+					4: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },  // Arbeitszeit
+					5: { cellWidth: 35, halign: 'left' },   // Status
+					6: { cellWidth: 'auto' }  // Anmerkung
+				},
+				// Zebra-Streifen für bessere Lesbarkeit
+				alternateRowStyles: {
+					fillColor: [249, 249, 249]
+				},
+				didDrawPage: function(data) {
+					// Fußzeile mit Seitenzahlen
+					const pageCount = doc.internal.getNumberOfPages();
+					const pageSize = doc.internal.pageSize;
+					const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+					doc.setFontSize(9);
+					doc.setTextColor(100);
+					doc.text(
+						`Seite ${doc.internal.getCurrentPageInfo().pageNumber} von ${pageCount}`,
+						pageSize.getWidth() / 2,
+						pageHeight - 10,
+						{ align: 'center' }
+					);
+				}
+			});
+
+			// Speichere PDF
+			doc.save(`Arbeitszeiten_${months[currentMonth - 1]}_${currentYear}.pdf`);
+			showToast('PDF wurde erfolgreich erstellt');
+		} catch (e) {
+			console.error('Fehler beim Erstellen des PDFs:', e);
+			showToast('Fehler beim Erstellen des PDFs');
+		}
+	}
 </script>
+
+<style>
+	@media print {
+		/* Verstecke Navigation und Buttons beim Drucken */
+		:global(nav),
+		:global(.btn),
+		:global(button),
+		:global(.toast) {
+			display: none !important;
+		}
+
+		/* Verstecke die Aktions-Spalte */
+		:global(th:last-child),
+		:global(td:last-child) {
+			display: none !important;
+		}
+
+		/* Optimiere Tabelle für Druck */
+		:global(.table) {
+			font-size: 10pt;
+		}
+
+		/* Seitenumbrüche vermeiden */
+		:global(tr) {
+			page-break-inside: avoid;
+		}
+
+		/* Header auf jeder Seite wiederholen */
+		:global(thead) {
+			display: table-header-group;
+		}
+
+		:global(tfoot) {
+			display: table-footer-group;
+		}
+
+		/* Entferne Hintergrundfarben für besseren Druck */
+		:global(.table-warning),
+		:global(.table-info),
+		:global(.table-secondary),
+		:global(.table-primary) {
+			background-color: transparent !important;
+		}
+
+		/* Schwarz-Weiß Badges */
+		:global(.badge) {
+			border: 1px solid #000;
+			background-color: white !important;
+			color: black !important;
+		}
+
+		/* Titel für Druck anpassen */
+		:global(h1),
+		:global(h3) {
+			page-break-after: avoid;
+		}
+
+		/* Entferne unnötige Cards */
+		:global(.card) {
+			border: none !important;
+			box-shadow: none !important;
+		}
+	}
+</style>
 
 <div class="row">
 	<div class="col-12">
@@ -904,6 +1147,9 @@
 			<div>
 				<button class="btn btn-success me-2" onclick={fillMonthWithDefaults}>
 					Monat ausfüllen
+				</button>
+				<button class="btn btn-outline-primary" onclick={printMonth}>
+					<i class="bi bi-printer"></i> Drucken
 				</button>
 			</div>
 		</div>

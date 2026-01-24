@@ -74,6 +74,12 @@
 	let carryoverCorrectionMinutes = $state(0);
 	let carryoverIsPositive = $state(true);
 	
+	// Modal für Rahmendienstplan-Änderungen
+	let showScheduleChangeModal = $state(false);
+	let scheduleChangeDate = $state('');
+	let pendingScheduleData = $state({});
+	let oldScheduleData = $state({});
+	
 	const months = [
 		'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
 		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
@@ -534,49 +540,98 @@
 	}
 	
 	async function saveUserSchedule() {
+		// Hole aktuelle Daten des Users, um alte Standardzeiten zu speichern
 		try {
-			const payload = {
-				default_break: defaultBreak,
-				default_monday_start_hour: mondayIsFree ? null : mondayStartHour,
-				default_monday_start_minute: mondayIsFree ? null : mondayStartMinute,
-				default_monday_end_hour: mondayIsFree ? null : mondayEndHour,
-				default_monday_end_minute: mondayIsFree ? null : mondayEndMinute,
-				default_tuesday_start_hour: tuesdayIsFree ? null : tuesdayStartHour,
-				default_tuesday_start_minute: tuesdayIsFree ? null : tuesdayStartMinute,
-				default_tuesday_end_hour: tuesdayIsFree ? null : tuesdayEndHour,
-				default_tuesday_end_minute: tuesdayIsFree ? null : tuesdayEndMinute,
-				default_wednesday_start_hour: wednesdayIsFree ? null : wednesdayStartHour,
-				default_wednesday_start_minute: wednesdayIsFree ? null : wednesdayStartMinute,
-				default_wednesday_end_hour: wednesdayIsFree ? null : wednesdayEndHour,
-				default_wednesday_end_minute: wednesdayIsFree ? null : wednesdayEndMinute,
-				default_thursday_start_hour: thursdayIsFree ? null : thursdayStartHour,
-				default_thursday_start_minute: thursdayIsFree ? null : thursdayStartMinute,
-				default_thursday_end_hour: thursdayIsFree ? null : thursdayEndHour,
-				default_thursday_end_minute: thursdayIsFree ? null : thursdayEndMinute,
-				default_friday_start_hour: fridayIsFree ? null : fridayStartHour,
-				default_friday_start_minute: fridayIsFree ? null : fridayStartMinute,
-				default_friday_end_hour: fridayIsFree ? null : fridayEndHour,
-				default_friday_end_minute: fridayIsFree ? null : fridayEndMinute,
-				default_saturday_start_hour: saturdayIsFree ? null : saturdayStartHour,
-				default_saturday_start_minute: saturdayIsFree ? null : saturdayStartMinute,
-				default_saturday_end_hour: saturdayIsFree ? null : saturdayEndHour,
-				default_saturday_end_minute: saturdayIsFree ? null : saturdayEndMinute,
-				default_sunday_start_hour: sundayIsFree ? null : sundayStartHour,
-				default_sunday_start_minute: sundayIsFree ? null : sundayStartMinute,
-				default_sunday_end_hour: sundayIsFree ? null : sundayEndHour,
-				default_sunday_end_minute: sundayIsFree ? null : sundayEndMinute
-			};
+			const response = await fetch(`${base}/api/users/${selectedUser}`);
+			const result = await response.json();
 			
+			if (result.success) {
+				oldScheduleData = result.data;
+			}
+		} catch (e) {
+			console.error('Fehler beim Laden der alten Daten:', e);
+		}
+		
+		// Speichere neue Daten zur späteren Verwendung
+		pendingScheduleData = {
+			default_break: defaultBreak,
+			default_monday_start_hour: mondayIsFree ? null : mondayStartHour,
+			default_monday_start_minute: mondayIsFree ? null : mondayStartMinute,
+			default_monday_end_hour: mondayIsFree ? null : mondayEndHour,
+			default_monday_end_minute: mondayIsFree ? null : mondayEndMinute,
+			default_tuesday_start_hour: tuesdayIsFree ? null : tuesdayStartHour,
+			default_tuesday_start_minute: tuesdayIsFree ? null : tuesdayStartMinute,
+			default_tuesday_end_hour: tuesdayIsFree ? null : tuesdayEndHour,
+			default_tuesday_end_minute: tuesdayIsFree ? null : tuesdayEndMinute,
+			default_wednesday_start_hour: wednesdayIsFree ? null : wednesdayStartHour,
+			default_wednesday_start_minute: wednesdayIsFree ? null : wednesdayStartMinute,
+			default_wednesday_end_hour: wednesdayIsFree ? null : wednesdayEndHour,
+			default_wednesday_end_minute: wednesdayIsFree ? null : wednesdayEndMinute,
+			default_thursday_start_hour: thursdayIsFree ? null : thursdayStartHour,
+			default_thursday_start_minute: thursdayIsFree ? null : thursdayStartMinute,
+			default_thursday_end_hour: thursdayIsFree ? null : thursdayEndHour,
+			default_thursday_end_minute: thursdayIsFree ? null : thursdayEndMinute,
+			default_friday_start_hour: fridayIsFree ? null : fridayStartHour,
+			default_friday_start_minute: fridayIsFree ? null : fridayStartMinute,
+			default_friday_end_hour: fridayIsFree ? null : fridayEndHour,
+			default_friday_end_minute: fridayIsFree ? null : fridayEndMinute,
+			default_saturday_start_hour: saturdayIsFree ? null : saturdayStartHour,
+			default_saturday_start_minute: saturdayIsFree ? null : saturdayStartMinute,
+			default_saturday_end_hour: saturdayIsFree ? null : saturdayEndHour,
+			default_saturday_end_minute: saturdayIsFree ? null : saturdayEndMinute,
+			default_sunday_start_hour: sundayIsFree ? null : sundayStartHour,
+			default_sunday_start_minute: sundayIsFree ? null : sundayStartMinute,
+			default_sunday_end_hour: sundayIsFree ? null : sundayEndHour,
+			default_sunday_end_minute: sundayIsFree ? null : sundayEndMinute
+		};
+		
+		// Setze default Datum auf heute
+		const today = new Date();
+		scheduleChangeDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+		
+		// Öffne Modal
+		showScheduleChangeModal = true;
+	}
+	
+	async function confirmScheduleChange() {
+		if (!scheduleChangeDate) {
+			showToast('Bitte ein Datum eingeben');
+			return;
+		}
+		
+		try {
+			// Speichere neue Standardzeiten
 			const response = await fetch(`${base}/api/users/${selectedUser}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
+				body: JSON.stringify(pendingScheduleData)
 			});
 			
 			const result = await response.json();
 			
 			if (result.success) {
-				showToast('Rahmendienstplan gespeichert');
+				// Aktualisiere bestehende Timetable-Einträge
+				const updateResponse = await fetch(`${base}/api/timetable/update-standards`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						user_id: selectedUser,
+						start_date: scheduleChangeDate,
+						old_schedule: oldScheduleData,
+						new_schedule: pendingScheduleData
+					})
+				});
+				
+				const updateResult = await updateResponse.json();
+				
+				if (updateResult.success) {
+					showToast(`Rahmendienstplan gespeichert. ${updateResult.updated || 0} Einträge aktualisiert.`);
+					showScheduleChangeModal = false;
+					// Lade Einträge neu
+					await loadEntries();
+				} else {
+					showToast('Fehler beim Aktualisieren der Einträge: ' + updateResult.message);
+				}
 			} else {
 				showToast('Fehler beim Speichern');
 			}
@@ -1652,6 +1707,44 @@
 					<button type="button" class="btn btn-secondary" onclick={() => showEmailModal = false}>Abbrechen</button>
 					<button type="button" class="btn btn-primary" onclick={sendEmail}>
 						<i class="bi bi-send"></i> E-Mail-Client öffnen
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showScheduleChangeModal}
+	<div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Ab wann sollen die Änderungen gelten?</h5>
+					<button type="button" class="btn-close" onclick={() => showScheduleChangeModal = false}></button>
+				</div>
+				<div class="modal-body">
+					<div class="alert alert-info">
+						<i class="bi bi-info-circle"></i> 
+						Bestehende Einträge, die den alten Standard-Zeiten entsprechen, werden ab dem gewählten Datum automatisch mit den neuen Standard-Zeiten überschrieben. 
+						Manuelle Änderungen bleiben erhalten.
+					</div>
+					
+					<div class="mb-3">
+						<label class="form-label"><strong>Gültig ab:</strong></label>
+						<input 
+							type="date" 
+							class="form-control" 
+							bind:value={scheduleChangeDate}
+							required
+						>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" onclick={() => showScheduleChangeModal = false}>
+						Abbrechen
+					</button>
+					<button type="button" class="btn btn-primary" onclick={confirmScheduleChange}>
+						<i class="bi bi-check-lg"></i> Änderungen übernehmen
 					</button>
 				</div>
 			</div>

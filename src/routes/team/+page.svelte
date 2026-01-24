@@ -1,5 +1,7 @@
 <script>
 	import { base } from '$app/paths';
+	import { onMount } from 'svelte';
+	let jsPDF, autoTable;
 	
 	let { data } = $props();
 	let user = $derived(data.user);
@@ -16,6 +18,9 @@
 	let showEmailModal = $state(false);
 	let toast = $state('');
 	let targetWorkDays = $state(0);
+	let targetMinutes = $state(0);
+	let holidays = $state([]);
+	let allDays = $state([]);
 	
 	// Rahmendienstplan-Felder für den ausgewählten User
 	let mondayStartHour = $state(null);
@@ -106,6 +111,7 @@
 			loadTargetHours();
 			loadPreviousMonthCarryover();
 			loadUserSchedule();
+			loadHolidays();
 		}
 	});
 	
@@ -169,13 +175,26 @@
 			if (result.success) {
 				const monthData = result.data.find(d => d.month === currentMonth);
 				targetWorkDays = monthData ? monthData.work_days : 0;
+				targetMinutes = monthData ? monthData.target_minutes : 0;
+				
+				// Fallback: Wenn target_minutes noch nicht gespeichert ist
+				if (targetMinutes === 0 && targetWorkDays > 0) {
+					const selectedUserObj = users.find(u => u.id === selectedUser);
+					if (selectedUserObj?.employment_percentage) {
+						targetMinutes = Math.round(targetWorkDays * 468 * (selectedUserObj.employment_percentage / 100));
+					} else {
+						targetMinutes = targetWorkDays * 468;
+					}
+				}
 			} else {
 				console.error('API Error:', result.message);
 				targetWorkDays = 0;
+				targetMinutes = 0;
 			}
 		} catch (e) {
 			console.error('Fehler beim Laden der Sollarbeitszeit:', e);
 			targetWorkDays = 0;
+			targetMinutes = 0;
 		}
 	}
 	
@@ -602,6 +621,352 @@
 			showToast('Fehler beim Löschen');
 		}
 	}
+	
+	async function loadHolidays() {
+		try {
+			const response = await fetch(`${base}/api/holidays?year=${currentYear}`);
+			const result = await response.json();
+			
+			if (result.success) {
+				holidays = result.data.map(h => {
+					const d = new Date(h.date);
+					const year = d.getFullYear();
+					const month = String(d.getMonth() + 1).padStart(2, '0');
+					const day = String(d.getDate()).padStart(2, '0');
+					return { ...h, date: `${year}-${month}-${day}` };
+				});
+				generateAllDays();
+			}
+		} catch (e) {
+			console.error('Fehler beim Laden der Feiertage:', e);
+		}
+	}
+	
+	function generateAllDays() {
+		const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+		const days = [];
+		const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+		
+		for (let day = 1; day <= daysInMonth; day++) {
+			const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+			const entry = entries.find(e => e.date === dateStr);
+			
+			const date = new Date(dateStr + 'T00:00:00');
+			const dayOfWeek = date.getDay();
+			const holiday = holidays.find(h => h.date === dateStr);
+			
+			days.push({
+				date: dateStr,
+				day: day,
+				dayOfWeek: dayOfWeek,
+				dayName: dayNames[dayOfWeek],
+				entry: entry && !entry._placeholder ? entry : null,
+				holiday: holiday || null
+			});
+		}
+		
+		allDays = days;
+	}
+	
+	function calculateHoursForPdf(entry) {
+		if (!entry) return '-';
+		
+		if (entry.absence_type === 'vacation') return '7:48h';
+		if (entry.absence_type === 'comp_time') return '-';
+		
+		if (!entry.starttime || !entry.endtime) return '-';
+		
+		const start = entry.starttime.split(':');
+		const end = entry.endtime.split(':');
+		const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+		const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+		const workMin = endMin - startMin - (entry.breakduration || 0);
+		
+		const hours = Math.floor(workMin / 60);
+		const mins = workMin % 60;
+		
+		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function calculateTotalHoursForPdf() {
+		let totalMinutes = 0;
+		
+		for (const day of allDays) {
+			if (day.entry) {
+				if (day.entry.absence_type === 'vacation') {
+					totalMinutes += 468;
+				} else if (day.entry.absence_type === 'comp_time') {
+					// Freizeitausgleich zählt nicht
+				} else if (day.entry.starttime && day.entry.endtime) {
+					const start = day.entry.starttime.split(':');
+					const end = day.entry.endtime.split(':');
+					const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+					const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+					const workMin = endMin - startMin - (day.entry.breakduration || 0);
+					totalMinutes += workMin;
+				}
+			}
+		}
+		
+		const hours = Math.floor(totalMinutes / 60);
+		const mins = totalMinutes % 60;
+		
+		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function countWorkDaysForPdf() {
+		return allDays.filter(day => day.entry && !day.entry.absence_type).length;
+	}
+	
+	function countVacationDaysForPdf() {
+		return allDays.filter(day => day.entry && day.entry.absence_type === 'vacation').length;
+	}
+	
+	function countCompTimeDaysForPdf() {
+		return allDays.filter(day => day.entry && day.entry.absence_type === 'comp_time').length;
+	}
+	
+	function calculateTargetHoursForPdf() {
+		const minutes = targetMinutes;
+		const hours = Math.floor(minutes / 60);
+		const mins = minutes % 60;
+		return `${hours}:${String(mins).padStart(2, '0')}h`;
+	}
+	
+	function calculateDifferenceForPdf() {
+		if (targetMinutes === 0) {
+			return { text: '-', isPositive: true, minutes: 0 };
+		}
+		
+		let actualMinutes = 0;
+		for (const day of allDays) {
+			if (day.entry) {
+				if (day.entry.absence_type === 'vacation') {
+					actualMinutes += 468;
+				} else if (day.entry.absence_type === 'comp_time') {
+					// Freizeitausgleich zählt nicht
+				} else if (day.entry.starttime && day.entry.endtime) {
+					const start = day.entry.starttime.split(':');
+					const end = day.entry.endtime.split(':');
+					const startMin = parseInt(start[0]) * 60 + parseInt(start[1]);
+					const endMin = parseInt(end[0]) * 60 + parseInt(end[1]);
+					const workMin = endMin - startMin - (day.entry.breakduration || 0);
+					actualMinutes += workMin;
+				}
+			}
+		}
+		
+		const diffMinutes = actualMinutes - targetMinutes;
+		const isPositive = diffMinutes >= 0;
+		const absDiff = Math.abs(diffMinutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive,
+			minutes: diffMinutes
+		};
+	}
+	
+	function calculateTotalCarryoverForPdf() {
+		const diff = calculateDifferenceForPdf();
+		if (diff.text === '-') {
+			return { text: '-', isPositive: true };
+		}
+		
+		const totalMinutes = diff.minutes + previousMonthCarryover;
+		const isPositive = totalMinutes >= 0;
+		const absDiff = Math.abs(totalMinutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive
+		};
+	}
+	
+	function formatMinutesToTimeForPdf(minutes) {
+		const isPositive = minutes >= 0;
+		const absDiff = Math.abs(minutes);
+		const hours = Math.floor(absDiff / 60);
+		const mins = absDiff % 60;
+		
+		return {
+			text: `${isPositive ? '+' : '-'}${hours}:${String(mins).padStart(2, '0')}h`,
+			isPositive: isPositive
+		};
+	}
+	
+	onMount(async () => {
+		if (typeof window !== 'undefined') {
+			const jsPDFModule = await import('jspdf');
+			jsPDF = jsPDFModule.default;
+			const autoTableModule = await import('jspdf-autotable');
+			autoTable = autoTableModule.default;
+		}
+	});
+	
+	async function printMonth() {
+		if (!jsPDF || !autoTable) {
+			alert('PDF-Bibliothek wird geladen, bitte versuchen Sie es in einem Moment erneut.');
+			return;
+		}
+		
+		const selectedUserObj = users.find(u => u.id === selectedUser);
+		if (!selectedUserObj) return;
+
+		try {
+			const doc = new jsPDF({
+				orientation: 'landscape',
+				unit: 'mm',
+				format: 'a4'
+			});
+
+			doc.setFontSize(16);
+			doc.setFont(undefined, 'bold');
+			doc.text(`Arbeitszeiten ${months[currentMonth - 1]} ${currentYear}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+			
+			doc.setFontSize(10);
+			doc.setFont(undefined, 'normal');
+			doc.text(`${selectedUserObj.name}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+
+			const tableHead = [['Datum', 'Von', 'Bis', 'Pause (Min)', 'Arbeitszeit', 'Status', 'Anmerkung']];
+			
+			const carryoverRow = [
+				{ content: 'Übertrag aus Vormonat:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [245, 245, 245] } },
+				{ content: formatMinutesToTimeForPdf(previousMonthCarryover).text, styles: { fontStyle: 'bold', textColor: previousMonthCarryover >= 0 ? [0, 128, 0] : [200, 0, 0], fillColor: [245, 245, 245] } },
+				{ content: '', colSpan: 2, styles: { fillColor: [245, 245, 245] } }
+			];
+
+			const tableBody = [];
+			tableBody.push(carryoverRow);
+
+			allDays.forEach(day => {
+				const dayLabel = `${day.dayName}, ${day.day}.${currentMonth}.${currentYear}${day.holiday ? ' - ' + day.holiday.name : ''}`;
+				
+				if (day.entry) {
+					let status = 'Arbeitszeit';
+					if (day.entry.absence_type === 'vacation') status = 'Urlaub';
+					if (day.entry.absence_type === 'comp_time') status = 'Freizeitausgleich';
+
+					let rowStyle = {};
+					if (day.entry.absence_type === 'vacation' || day.entry.absence_type === 'comp_time') {
+						rowStyle = { fillColor: [250, 250, 250] };
+					}
+
+					tableBody.push([
+						dayLabel,
+						formatTime(day.entry.starttime),
+						formatTime(day.entry.endtime),
+						day.entry.breakduration || '-',
+						calculateHoursForPdf(day.entry),
+						status,
+						day.entry.comment || '-'
+					]);
+				} else {
+					const isWeekendOrHoliday = day.holiday || day.dayOfWeek === 0 || day.dayOfWeek === 6;
+					tableBody.push({
+						content: [
+							dayLabel,
+							'-',
+							'-',
+							'-',
+							'-',
+							day.holiday ? 'Feiertag' : '-',
+							day.holiday ? day.holiday.name : '-'
+						],
+						styles: isWeekendOrHoliday ? { fillColor: [240, 240, 240] } : {}
+					});
+				}
+			});
+
+			const footerRows = [
+				[
+					{ content: 'Ist-Arbeitszeit:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: calculateTotalHoursForPdf(), styles: { fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: `${countWorkDaysForPdf()} Arbeitstage | ${countVacationDaysForPdf()} Urlaub | ${countCompTimeDaysForPdf()} Freizeitausgleich`, colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+				]
+			];
+
+			if (targetMinutes > 0) {
+				footerRows.push([
+					{ content: 'Soll-Arbeitszeit:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: calculateTargetHoursForPdf(), styles: { fontStyle: 'bold', fillColor: [230, 230, 230] } },
+					{ content: targetWorkDays > 0 ? `${targetWorkDays} Arbeitstage (Soll)` : '', colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+				]);
+
+				const diff = calculateDifferenceForPdf();
+				if (diff.text !== '-') {
+					footerRows.push([
+						{ content: 'Differenz:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [230, 230, 230] } },
+						{ content: diff.text, styles: { fontStyle: 'bold', textColor: diff.isPositive ? [0, 128, 0] : [200, 0, 0], fillColor: [230, 230, 230] } },
+						{ content: '', colSpan: 2, styles: { fillColor: [230, 230, 230] } }
+					]);
+
+					const totalCarry = calculateTotalCarryoverForPdf();
+					footerRows.push([
+						{ content: 'Übertrag in Folgemonat:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [200, 220, 240] } },
+						{ content: totalCarry.text, styles: { fontStyle: 'bold', textColor: totalCarry.isPositive ? [0, 128, 0] : [200, 0, 0], fillColor: [200, 220, 240] } },
+						{ content: 'Kumulierter Übertrag', colSpan: 2, styles: { fillColor: [200, 220, 240] } }
+					]);
+				}
+			}
+
+			tableBody.push(...footerRows);
+
+			autoTable(doc, {
+				head: tableHead,
+				body: tableBody,
+				startY: 28,
+				theme: 'grid',
+				styles: {
+					fontSize: 8,
+					cellPadding: 2,
+					lineColor: [150, 150, 150],
+					lineWidth: 0.1
+				},
+				headStyles: {
+					fillColor: [220, 220, 220],
+					textColor: [0, 0, 0],
+					fontStyle: 'bold',
+					halign: 'left'
+				},
+				columnStyles: {
+					0: { cellWidth: 60 },
+					1: { cellWidth: 18, halign: 'center' },
+					2: { cellWidth: 18, halign: 'center' },
+					3: { cellWidth: 20, halign: 'center' },
+					4: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+					5: { cellWidth: 35, halign: 'left' },
+					6: { cellWidth: 'auto' }
+				},
+				alternateRowStyles: {
+					fillColor: [249, 249, 249]
+				},
+				didDrawPage: function(data) {
+					const pageCount = doc.internal.getNumberOfPages();
+					const pageSize = doc.internal.pageSize;
+					const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+					doc.setFontSize(9);
+					doc.setTextColor(100);
+					doc.text(
+						`Seite ${doc.internal.getCurrentPageInfo().pageNumber} von ${pageCount}`,
+						pageSize.getWidth() / 2,
+						pageHeight - 10,
+						{ align: 'center' }
+					);
+				}
+			});
+
+			doc.save(`Arbeitszeiten_${selectedUserObj.name}_${months[currentMonth - 1]}_${currentYear}.pdf`);
+			showToast('PDF wurde erfolgreich erstellt');
+		} catch (e) {
+			console.error('Fehler beim Erstellen des PDFs:', e);
+			showToast('Fehler beim Erstellen des PDFs');
+		}
+	}
 </script>
 
 <div class="row">
@@ -681,9 +1046,14 @@
 										<i class="bi bi-chevron-right"></i>
 									</button>
 								</div>
-							<button class="btn btn-primary" onclick={openEmailModal}>
-								<i class="bi bi-envelope"></i> Anmerkung senden
-							</button>
+								<div class="d-flex gap-2">
+									<button class="btn btn-outline-primary" onclick={printMonth}>
+										<i class="bi bi-printer"></i> PDF
+									</button>
+									<button class="btn btn-primary" onclick={openEmailModal}>
+										<i class="bi bi-envelope"></i> Anmerkung senden
+									</button>
+								</div>
 							</div>
 						</div>
 					</div>

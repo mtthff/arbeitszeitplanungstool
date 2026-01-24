@@ -928,7 +928,7 @@
 			
 			doc.setFontSize(10);
 			doc.setFont(undefined, 'normal');
-			doc.text(`${user.first_name} ${user.last_name}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+			doc.text(`${user.name}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
 
 			// Extrahiere Tabellendaten
 			const tableHead = [['Datum', 'Von', 'Bis', 'Pause (Min)', 'Arbeitszeit', 'Status', 'Anmerkung']];
@@ -1142,14 +1142,16 @@
 <div class="row">
 	<div class="col-12">
 		<div class="d-flex justify-content-between align-items-center mb-4">
-			<h1>
-				<i class="bi bi-calendar3" onclick={goToCurrentMonth} style="cursor: pointer;" title="Zum aktuellen Monat springen"></i> Meine Arbeitszeiten</h1>
+			<h2>
+				<i class="bi bi-calendar3" onclick={goToCurrentMonth} style="cursor: pointer;" title="Zum aktuellen Monat springen"></i> 
+				Arbeitszeiten
+			</h2>
 			<div>
 				<button class="btn btn-success me-2" onclick={fillMonthWithDefaults}>
 					Monat ausfüllen
 				</button>
 				<button class="btn btn-outline-primary" onclick={printMonth}>
-					<i class="bi bi-printer"></i> Drucken
+					<i class="bi bi-printer"></i> 
 				</button>
 			</div>
 		</div>

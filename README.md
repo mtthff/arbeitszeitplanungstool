@@ -22,7 +22,7 @@ Ein vollständiges SvelteKit-basiertes Tool zur Arbeitszeitplanung mit rollenbas
 - **Datenbank:** MySQL mit mysql2
 - **Adapter:** @sveltejs/adapter-node
 - **UI Framework:** Bootstrap 5 (CDN)
-- **Base Path:** `/azn-planung` (permanent für Dev & Production)
+- **Base Path:** `/az-planung` (permanent für Dev & Production)
 
 ## Rollen & Berechtigungen
 
@@ -65,7 +65,7 @@ npm install
 npm run dev
 
 # App öffnen im Browser
-http://localhost:5173/azn-planung
+http://localhost:5173/az-planung
 ```
 
 
@@ -116,11 +116,11 @@ Der Server läuft standardmäßig auf Port 3000.
 
 ##### Nginx
 
-Erstelle eine Nginx-Konfiguration für das Unterverzeichnis `/azn-planung`:
+Erstelle eine Nginx-Konfiguration für das Unterverzeichnis `/az-planung`:
 
 ```nginx
-location /azn-planung/ {
-    proxy_pass http://localhost:3000/azn-planung/;
+location /az-planung/ {
+    proxy_pass http://localhost:3000/az-planung/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection 'upgrade';
@@ -145,8 +145,8 @@ Erstelle eine `.htaccess` oder Apache-Config:
 
 ```apache
 <IfModule mod_proxy.c>
-    ProxyPass /azn-planung http://localhost:3000/azn-planung
-    ProxyPassReverse /azn-planung http://localhost:3000/azn-planung
+    ProxyPass /az-planung http://localhost:3000/az-planung
+    ProxyPassReverse /az-planung http://localhost:3000/az-planung
     ProxyPreserveHost On
 </IfModule>
 ```
@@ -167,7 +167,7 @@ npm install -g pm2
 
 # App starten
 cd build
-pm2 start index.js --name azn-planung
+pm2 start index.js --name az-planung
 
 # Automatischer Start nach Reboot
 pm2 startup
@@ -183,16 +183,16 @@ uberspace port add
 # Notiere dir die Port-Nummer (z.B. 40132)
 
 # 2. Backend starten
-cd ~/azn-planung/build
+cd ~/az-planung/build
 PORT=40132 node index.js &
 
 # 3. Web-Backend konfigurieren
-uberspace web backend set UBERSPACENAME.uber.space/azn-planung --http --port 40132
+uberspace web backend set UBERSPACENAME.uber.space/az-planung --http --port 40132
 
 # 4. Dauerhafter Betrieb mit supervisord
-cat > ~/etc/services.d/azn-planung.ini << EOF
-[program:azn-planung]
-command=node /home/USER/azn-planung/build/index.js
+cat > ~/etc/services.d/az-planung.ini << EOF
+[program:az-planung]
+command=node /home/USER/az-planung/build/index.js
 environment=PORT=40132
 autostart=yes
 autorestart=yes
@@ -202,15 +202,15 @@ EOF
 # Service starten
 supervisorctl reread
 supervisorctl update
-supervisorctl start azn-planung
+supervisorctl start az-planung
 ```
 
 ## Base Path Konfiguration
 
-Die App ist **dauerhaft** für den Base Path `/azn-planung` konfiguriert:
+Die App ist **dauerhaft** für den Base Path `/az-planung` konfiguriert:
 
-- ✅ Development: `http://localhost:5173/azn-planung`
-- ✅ Production: `https://UBERSPACENAME.uber.space/azn-planung`
+- ✅ Development: `http://localhost:5173/az-planung`
+- ✅ Production: `https://UBERSPACENAME.uber.space/az-planung`
 
 **Wichtig:** Alle internen Links und API-Aufrufe nutzen automatisch den Base Path durch `$app/paths`.
 
@@ -281,7 +281,7 @@ SELECT * FROM timetable WHERE user_id = 3;
 ## Projektstruktur
 
 ```
-azn-planung/
+az-planung/
 ├── src/
 │   ├── lib/
 │   │   ├── db.js                    # Datenbank-Logic
@@ -327,25 +327,25 @@ azn-planung/
 
 ## API-Endpunkte
 
-Alle Endpunkte sind unter `/azn-planung/api` verfügbar:
+Alle Endpunkte sind unter `/az-planung/api` verfügbar:
 
 ### Authentifizierung
-- `POST /azn-planung/api/auth/login` - Login
-- `POST /azn-planung/api/auth/logout` - Logout
+- `POST /az-planung/api/auth/login` - Login
+- `POST /az-planung/api/auth/logout` - Logout
 
 ### Benutzer
-- `GET /azn-planung/api/users` - Alle Benutzer
-- `POST /azn-planung/api/users` - Neuer Benutzer (erfordert: name, email, password, is_admin, is_leitung)
-- `GET /azn-planung/api/users/:id` - Benutzer Details
-- `PUT /azn-planung/api/users/:id` - Benutzer aktualisieren (Berechtigungen ändern)
-- `DELETE /azn-planung/api/users/:id` - Benutzer löschen
+- `GET /az-planung/api/users` - Alle Benutzer
+- `POST /az-planung/api/users` - Neuer Benutzer (erfordert: name, email, password, is_admin, is_leitung)
+- `GET /az-planung/api/users/:id` - Benutzer Details
+- `PUT /az-planung/api/users/:id` - Benutzer aktualisieren (Berechtigungen ändern)
+- `DELETE /az-planung/api/users/:id` - Benutzer löschen
 
 ### Arbeitszeiten
-- `GET /azn-planung/api/timetable?user_id=X&month=Y&year=Z` - Einträge filtern
-- `POST /azn-planung/api/timetable` - Neuer Eintrag
-- `GET /azn-planung/api/timetable/:id` - Eintrag Details
-- `PUT /azn-planung/api/timetable/:id` - Eintrag aktualisieren
-- `DELETE /azn-planung/api/timetable/:id` - Eintrag löschen
+- `GET /az-planung/api/timetable?user_id=X&month=Y&year=Z` - Einträge filtern
+- `POST /az-planung/api/timetable` - Neuer Eintrag
+- `GET /az-planung/api/timetable/:id` - Eintrag Details
+- `PUT /az-planung/api/timetable/:id` - Eintrag aktualisieren
+- `DELETE /az-planung/api/timetable/:id` - Eintrag löschen
 
 ## Umgebungsvariablen
 
@@ -364,7 +364,7 @@ PORT=3000 node build/index.js
 netstat -tulpn | grep 3000
 
 # Prüfe Logs
-pm2 logs azn-planung
+pm2 logs az-planung
 ```
 
 ### Datenbank-Fehler
@@ -382,8 +382,8 @@ sudo systemctl status mysql
 
 ### Base Path funktioniert nicht
 
-- Stelle sicher, dass der Webserver korrekt auf `/azn-planung/` weiterleitet
-- Prüfe ob `paths.base` in `svelte.config.js` auf `/azn-planung` gesetzt ist
+- Stelle sicher, dass der Webserver korrekt auf `/az-planung/` weiterleitet
+- Prüfe ob `paths.base` in `svelte.config.js` auf `/az-planung` gesetzt ist
 - Alle Links müssen `${base}/...` verwenden (aus `$app/paths`)
 
 ## Weiterentwicklung
@@ -401,7 +401,7 @@ Bearbeite die `createTables()` Funktion in `src/lib/db.js` und setze die Datenba
 ## Support & Kontakt
 
 Bei Fragen oder Problemen:
-- Prüfe die Logs: `pm2 logs azn-planung`
+- Prüfe die Logs: `pm2 logs az-planung`
 - Teste lokal mit `npm run dev`
 - Prüfe Nginx/Apache Logs
 

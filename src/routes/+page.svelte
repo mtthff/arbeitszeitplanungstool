@@ -754,9 +754,14 @@
 			const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 			
 			// Konvertiere hh:mm zu Minuten
-			const timeParts = carryoverCorrectionTime.split(':');
-			const hours = parseInt(timeParts[0] || 0);
-			const mins = parseInt(timeParts[1] || 0);
+			const trimmed = carryoverCorrectionTime.trim();
+			const match = trimmed.match(/^(\d+):([0-5]\d)$/);
+			if (!match) {
+				showToast('Bitte Zeit im Format hh:mm eingeben (z.B. 25:35)');
+				return;
+			}
+			const hours = parseInt(match[1], 10);
+			const mins = parseInt(match[2], 10);
 			const totalMinutes = (hours * 60 + mins) * (carryoverIsPositive ? 1 : -1);
 			
 			const response = await fetch(`${base}/api/carryover-corrections`, {
@@ -1468,8 +1473,11 @@
 								<label class="form-label">Zeit (hh:mm)</label>
 								<div class="d-flex gap-2 align-items-center">
 									<input 
-										type="time" 
+										type="text" 
 										class="form-control" 
+										inputmode="numeric"
+										placeholder="z.B. 25:35"
+										pattern="^\\d+:[0-5]\\d$"
 										bind:value={carryoverCorrectionTime} 
 									>
 								</div>

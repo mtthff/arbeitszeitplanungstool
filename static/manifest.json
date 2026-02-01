@@ -1,19 +1,27 @@
 {
-  "name": "Arbeitszeitplanungstool",
-  "short_name": "AZ-Planung",
-  "description": "Arbeitszeitplanungstool für Zeiterfassung und Jahresplanung",
-  "start_url": "/az-planung/",
-  "scope": "/az-planung/",
-  "display": "standalone",
+  "theme_color": "#ffffff",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/az-planung/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "icon512_maskable.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "icon512_rounded.png",
+      "type": "image/png"
     }
-  ]
+  ],
+  "orientation": "portrait",
+  "display": "standalone",
+  "dir": "auto",
+  "lang": "de",
+  "name": "Arbeitszeitplanungstool",
+  "short_name": "AZ-Planung",
+  "start_url": "https://jugastu.uber.space/az-planung/",
+  "scope": "/",
+  "description": "Arbeitszeitplanungstool für Zeiterfassung und Jahresplanung"
 }

@@ -1407,8 +1407,8 @@
 					<button type="button" class="btn btn-warning me-auto" onclick={loadStandardTimes}>
 						<i class="bi bi-clock-history"></i> Standard-Zeiten
 					</button>
-					<button type="button" class="btn btn-secondary" onclick={closeForm}>Abbrechen</button>
 					<button type="button" class="btn btn-primary" onclick={saveEntry}>Speichern</button>
+					<button type="button" class="btn btn-secondary" onclick={closeForm}>Abbrechen</button>
 				</div>
 			</div>
 		</div>
